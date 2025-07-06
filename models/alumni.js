@@ -13,42 +13,14 @@ const alumniSchema =  new mongoose.Schema({
         }
     },
 
-    programType: {
-        type:String, 
-        enum:['Certificate', 'Diploma', 'Bachelor', 'Other'], 
-        validate: {
-            validator: function (v)
-            {
-                if (v&&!this.program){
-                    return false; 
-                }   
-                return true;
-            },
-            message: "Please specify program to set program type."
-        }
-    },
-
-    program: {
-        type: String,
-        validate:{
-            validator: function(v){
-                if (v && !this.programType){
-                    return false;
-                }
-                return true;
-            },
-            message: "Please enter the program name if you choose a program type."
-        }
-    },
-
     currentJob: {
         type: {
             companyName: {type:String, default:''},
             jobTitle: { type: String, default: '' },
             startDate: { type: Date },
-            endDate: { type: Date },
             isPresent: { type: Boolean}
         },
+
         validate:{
             validator: function (v){
                 // so if there is no input by the user for any of the job fields , validator will not fail, so its return true
@@ -94,7 +66,7 @@ const alumniSchema =  new mongoose.Schema({
         }
     }
 
-});
+}, { timestamps: true });
 
 const Alumni = User.discriminator('Alumni', alumniSchema);
 module.exports = Alumni;

@@ -1,5 +1,6 @@
 const mongoose = require ('mongoose'); 
 //import mongoose library
+const bcrypt = require("bcrypt");
 
 const options = { discriminatorKey: 'role', timestamps: true};
 // discriminator key used when we want to create sub schema
@@ -10,14 +11,7 @@ const userSchema = new mongoose.Schema({
 
     firstName: {type:String, required: true, trim: true},
     lastName:  {type:String, trim: true},
-    
-    role: {
-        type:String , 
-        enum: ["Student","Mentor","Alumni", "Admin"], 
-        required: true
-    },
-    
-
+  
     username: {
                 type:String, required: true, unique: true,
                 minlength: 5, 
@@ -60,12 +54,49 @@ const userSchema = new mongoose.Schema({
             message: "Password must contain at least 1 lowercase, 1 uppercase, 1 number, 1 special character (!@#$%^&*), and be more than 7 characters",
         }
     },
-                
-    
-    bio: {type: String, default: ""},
-   
-    interests: {type: [String], default: []}
 
+    bio: {type: String, default: ""},
+
+    role: {
+        type:String , 
+        enum: ["Student","Mentor","Alumni"], 
+        required: true
+    },
+
+    programType: {
+        type:String, 
+        enum:['Certificate', 'Diploma', 'Bachelor', 'Other'], 
+        required: true
+    },
+
+    program: {
+        type: String,
+        ref: 'program',
+        required: true
+    },
+
+    coursesEnrolled: [{
+
+        course: {
+            type: String, 
+            ref:'course',
+            required:true
+        },
+        semester: {
+            type: String, 
+            enum: ['Fall','Spring','Summer'],
+            required: true
+        },
+        year: {
+            type: Number,
+            required: true
+        },
+        instructor: {
+            type: String,
+            required: true
+        }
+    }]
+                
 }, options);
 
 userSchema.virtual('fullName').get(function (){
