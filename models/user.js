@@ -66,7 +66,8 @@ const userSchema = new mongoose.Schema({
     programType: {
         type:String, 
         enum:['Certificate', 'Diploma', 'Bachelor', 'Other'], 
-        required: true
+        required: true,
+        index: true
     },
 
     program: {
@@ -80,7 +81,7 @@ const userSchema = new mongoose.Schema({
         course: {
             type: String, 
             ref:'course',
-            required:true
+            required:true,
         },
         semester: {
             type: String, 

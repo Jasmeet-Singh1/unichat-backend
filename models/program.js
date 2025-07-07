@@ -3,7 +3,9 @@ const programSchema = new mongoose.Schema ({
     
     type: {
         type: String, 
-        enum: ['Certificate', 'Diploma', 'Degree', 'Post Baccalaureate Diploma','Graduate Certificate', 'Associate Degree','Continuing and Professional Studies' ,'Other']
+        enum: ['Certificate', 'Diploma', 'Degree', 'Post Baccalaureate Diploma','Graduate Certificate', 'Associate Degree','Continuing and Professional Studies' ,'Other'],
+        required: true, 
+        index: true
     },
 
     name: {
