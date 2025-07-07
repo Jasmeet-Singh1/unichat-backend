@@ -74,7 +74,6 @@ const mentorSchema = new mongoose.Schema ({
 
   overallGPA: {
     type: Number,
-    required: true
   },
 
   showGPA: {

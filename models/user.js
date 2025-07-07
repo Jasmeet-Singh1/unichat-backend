@@ -65,7 +65,8 @@ const userSchema = new mongoose.Schema({
 
     programType: {
         type:String, 
-        enum:['Certificate', 'Diploma', 'Bachelor', 'Other'], 
+        enum:['Certificate', 'Diploma', 'Baccalaureate Degree', 'Post Baccalaureate Diploma','Graduate Diploma','Graduate Certificate', 
+            'Associate Degree','Continuing and Professional Studies' ,'Other'], 
         required: true,
         index: true
     },
