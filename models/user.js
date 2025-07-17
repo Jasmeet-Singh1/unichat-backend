@@ -1,6 +1,7 @@
 const mongoose = require ('mongoose'); 
 //import mongoose library
 const bcrypt = require("bcrypt");
+const hashPass = require('../utils/hashPass');
 
 const options = { discriminatorKey: 'role', timestamps: true};
 // discriminator key used when we want to create sub schema
@@ -104,6 +105,16 @@ const userSchema = new mongoose.Schema({
 userSchema.virtual('fullName').get(function (){
     return `${this.firstName} ${this.lastName}`;
 
+});
+
+userSchema.pre('save', async function(next) {
+  if (!this.isModified('password')) return next();
+  try {
+    this.password = await hashPass(this.password);
+    next();
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = mongoose.model('User', userSchema);
