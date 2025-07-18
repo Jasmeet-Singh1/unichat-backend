@@ -4,8 +4,6 @@ const User = require('../models/user');       // Base User model for checking un
 const Student = require('../models/student'); // Role-specific models
 const Mentor = require('../models/mentor');
 const Alumni = require('../models/alumni');
-const hashPass = require('../utils/hashPassword'); // Custom password hashing function
-
 
 // User Registration Controller (Sign Up)
 const SignUp = async (req, res) => {
@@ -33,8 +31,8 @@ const SignUp = async (req, res) => {
       return res.status(400).json({ error: 'Email or Username already exists.' });
     }
 
-    // Hash the password before storing it
-    const hashedPassword = await hashPass(password);
+    // DO NOT hash here — just pass the plain password and rely on Mongoose pre-save hook to hash
+    const hashedPassword = password;  // assign password directly
 
     let newUser; // Placeholder for the user object based on role
 
@@ -74,7 +72,7 @@ const SignUp = async (req, res) => {
       return res.status(400).json({ error: 'Invalid role provided.' });
     }
 
-    // Save the user to the database
+    // Save the user to the database (Mongoose pre-save hook will hash password here)
     await newUser.save();
 
     // Return success message
@@ -98,23 +96,33 @@ const Login = async (req, res) => {
                await Mentor.findOne({ email: email.toLowerCase() }) ||
                await Alumni.findOne({ email: email.toLowerCase() });
 
-    // If no user is found, return error
+    console.log("Login attempt for email:", email);
+    console.log("User found:", user ? user.username : "No user found");
+
     if (!user) {
       return res.status(401).json({ error: 'Invalid email.' });
     }
 
-    // Compare provided password with hashed password from DB
+    //Logs for troubleshooting
+    console.log("Stored hashed password:", user.password);
+    console.log("Entered plain password:", password);
+    console.log(`DB password: '${user.password}'`);
+    console.log(`Input password: '${password}'`);
+    console.log("Passwords equal (plain check):", user.password === password);
+    console.log("Passwords equal after trim:", user.password.trim() === password.trim());
+
     const isMatch = await bcrypt.compare(password, user.password);
+    console.log("bcrypt.compare result:", isMatch);
+
+
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid password.' });
     }
 
-    // If the user is a mentor or alumni and not yet approved, block login
     if ((user.role === 'Mentor' || user.role === 'Alumni') && !user.isApproved) {
       return res.status(403).json({ error: 'Account not approved yet by admin.' });
     }
 
-    // Send success response with user info (You can also generate a JWT token here if needed)
     res.status(200).json({
       message: 'Login successful.',
       user: {
@@ -131,5 +139,4 @@ const Login = async (req, res) => {
   }
 };
 
-// Export both controllers
 module.exports = { SignUp, Login };

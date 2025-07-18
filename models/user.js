@@ -28,20 +28,13 @@ const userSchema = new mongoose.Schema({
     email: {
         type:String, 
         required: true, unique: true,
-        lowercase: true, trim: true,  
+        lowercase: true, trim: true ,
         validate: {
-            validator: function (email){
-                    if (this.role === "Student" || this.role === "Mentor")
-                        {
-                            return /@student\.kpu\.ca$/.test(email);
-                            // this will ensure the email ends with @student.kpu.ca
-                    }
-
-                return /.+@.+\..+/.test(email);
-
-          },
-            message: (props) => `${props.value} is not a valid email address. `
-        }     
+        validator: function (email) {
+            return /.+@.+\..+/.test(email);
+        },
+        message: props => `${props.value} is not a valid email address.`
+        }          
     },
    
     password: {
@@ -107,10 +100,12 @@ userSchema.virtual('fullName').get(function (){
 
 });
 
+//Password hashed here rather than in controller
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   try {
-    this.password = await hashPass(this.password);
+    const saltRounds = 10;
+    this.password = await bcrypt.hash(this.password, saltRounds);
     next();
   } catch (err) {
     next(err);

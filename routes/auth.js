@@ -1,18 +1,12 @@
 const express = require('express');
 const router = express.Router();
+const { SignUp, Login } = require('../controllers/authController');
 
-// @route     GET api/auth
-// @desc      Get logged in user
-// @access    Private
-router.get('/', (req, res) => {
-  res.send('Get logged in user');
-});
+// Route for Student (and other roles) Registration
+router.post('/register', SignUp);
 
-// @route     POST api/auth
-// @desc      Auth User & get tokken
-// @access    Public
-router.post('/', (req, res) => {
-  res.send('Log in user');
-});
+// Route for User Login
+router.post('/login', Login);
 
 module.exports = router;
+

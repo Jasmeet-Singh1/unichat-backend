@@ -1,11 +1,12 @@
-const bcrypt = require("bcrypt");
+const bcrypt = require('bcrypt');
 
-async function hashPass(plainTxtPass) {
-  const saltRounds = 10;
-  return await bcrypt.hash(plainTxtPass, saltRounds);
-}
+const hashPass = async (plainPassword) => {
+  const salt = await bcrypt.genSalt(10);
+  return await bcrypt.hash(plainPassword, salt);
+};
 
 module.exports = hashPass;
+
 
 //This file defines how the password is hashed. 
 
