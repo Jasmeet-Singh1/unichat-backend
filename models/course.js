@@ -12,7 +12,8 @@ const courseSchema = new mongoose.Schema ({
         required: true, 
         unique:true
     },
-
+    
+    //instructor requirement
     enrolledStudents: [{
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'user'

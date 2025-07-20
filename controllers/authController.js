@@ -4,6 +4,7 @@ const User = require('../models/user');       // Base User model for checking un
 const Student = require('../models/student'); // Role-specific models
 const Mentor = require('../models/mentor');
 const Alumni = require('../models/alumni');
+const notifyCoursePeersOnNewSignup = require('./notificationController');
 
 // User Registration Controller (Sign Up)
 const SignUp = async (req, res) => {
@@ -74,6 +75,9 @@ const SignUp = async (req, res) => {
 
     // Save the user to the database (Mongoose pre-save hook will hash password here)
     await newUser.save();
+
+    // Notify existing user if needed 
+    await notifyCoursePeersOnNewSignup(newUser);
 
     // Return success message
     res.status(201).json({

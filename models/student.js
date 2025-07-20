@@ -35,6 +35,5 @@ const studentSchema = new mongoose.Schema({
 
 //Student as in base schema
 const Student = User.discriminator('Student', studentSchema);
-
 module.exports = Student;
 

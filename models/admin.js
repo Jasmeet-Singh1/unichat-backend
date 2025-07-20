@@ -4,35 +4,35 @@ const hashPass = require ("../utils/hashPass");
 
 const adminSchema = new mongoose.Schema({
 
-  firstName: { type: String, required: true, trim: true },
-  lastName: { type: String, required: true, trim: true },
-  username: {type:String, unique: true, lowercase: true},
+    firstName: { type: String, required: true, trim: true },
+    lastName: { type: String, required: true, trim: true },
+    username: {type:String, unique: true, lowercase: true},
 
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-    lowercase: true,
-    trim: true, 
-    match: /.+@.+\..+/
-  },
+    email: {
+        type: String,
+        required: true,
+        unique: true,
+        lowercase: true,
+        trim: true, 
+        match: /.+@.+\..+/
+    },    
 
-  password: {
-    type: String,
-    required: true,
-    minlength: 7,
-        validate:{
-            validator: function (v) {
-                return /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*])(?=.*\d).{7,}$/.test(v);
-            },
-            message: "Password must contain at least 1 lowercase, 1 uppercase, 1 number, 1 special character (!@#$%^&*), and be more than 7 characters",
-        }
-  },
+    password: {
+        type: String,
+        required: true,
+        minlength: 7,
+            validate:{
+                validator: function (v) {
+                    return /^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*])(?=.*\d).{7,}$/.test(v);
+                },
+                message: "Password must contain at least 1 lowercase, 1 uppercase, 1 number, 1 special character (!@#$%^&*), and be more than 7 characters",
+            }
+    },
 
- role: {
-    type: String,
-    enum: ["Admin", "Super Admin"],
-  },
+    role: {
+        type: String,
+        enum: ["Admin", "Super Admin"],
+    },
 
 }, {timestamps: true});  
 

@@ -11,8 +11,10 @@ connectDB();
 app.use(express.json());
 
 // Define Routes
-//app.use('/api/users', require('./routes/users'));
-app.use('/api/auth', require('./routes/auths'));
+app.use('/api/users', require('./routes/users'));
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/getClubs', require('./routes/clubs'));
+app.use('/api/programs', require('./routes/programs'));
 
 //Root Routes
 app.get('/', (req, res) => res.json({ msg: 'Welcome to UniChat API...' }));

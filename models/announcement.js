@@ -2,7 +2,8 @@ const mongoose = require('mongoose');
 
 const announcementSchema = new mongoose.Schema({
   
-    title: { type: String, required: true },  
+    title: { type: String, required: true }, 
+     
     body: { type: String, required: true },
   
     createdBy: {
@@ -20,7 +21,7 @@ const announcementSchema = new mongoose.Schema({
     },
     
     target: {
-        role: [{ type: String, enum: ['student', 'mentor', 'alumni'] }], // no 'admin'
+        role: [{ type: String, enum: ['Student', 'Mentor', 'Alumni'] }], // no 'admin'
         course: [{ type: String, ref: 'course' }],
         program: [{ type: String, ref: 'program' }]
     },
