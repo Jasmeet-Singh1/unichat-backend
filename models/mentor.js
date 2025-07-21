@@ -81,7 +81,7 @@ const mentorSchema = new mongoose.Schema ({
     default: false
   },
 
-  updateGpaReq: {
+ /* updateGpaReq: {
     requested: { type: Boolean, default: false },
     submittedAt: { type: Date },
     message: { type: String },
@@ -95,7 +95,7 @@ const mentorSchema = new mongoose.Schema ({
         message: "At least one supporting file is required."
       }
     }
-  }
+  }*/
 
 },
 { timestamps: true });

@@ -31,6 +31,11 @@ const SignUp = async (req, res) => {
     if (existingUser) {
       return res.status(400).json({ error: 'Email or Username already exists.' });
     }
+    
+    //Validate email requirements. 
+    if (role === 'Mentor' && !email.toLowerCase().endsWith('@student.kpu.ca')) {
+      return res.status(400).json({ error: 'Mentor email must end with @student.kpu.ca' });
+    }
 
     // DO NOT hash here — just pass the plain password and rely on Mongoose pre-save hook to hash
     const hashedPassword = password;  // assign password directly

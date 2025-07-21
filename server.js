@@ -1,8 +1,10 @@
 const express = require('express'); //Important for api and web server in node
 const connectDB = require('./config/db'); // Important for Database
-
+const config = require ('config');
+const accApprovalRoute = require('./routes/accApproval');
 const app = express(); //To create express app and will listen to requests adn deal with it
 const PORT = process.env.PORT || 5000;
+
 
 // Connect server to database
 connectDB();
@@ -15,7 +17,7 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/getClubs', require('./routes/clubs'));
 app.use('/api/programs', require('./routes/programs'));
-
+app.use('/api/mentorApproval',require ('./routes/accApproval'));
 //Root Routes
 app.get('/', (req, res) => res.json({ msg: 'Welcome to UniChat API...' }));
 
