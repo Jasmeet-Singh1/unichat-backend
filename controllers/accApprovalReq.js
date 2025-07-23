@@ -26,31 +26,6 @@ const getMentorById = async (req, res) => {
     }
 };
 
-// Approve or reject mentor
-const updateMentorApproval = async (req, res) => {
-    try {
-        const { approve } = req.body; // true or false
-        const mentor = await Mentor.findById(req.params.id);
-        if (!mentor) return res.status(404).json({ error: 'Mentor not found' });
-
-        if (approve === true) {
-            mentor.isApproved = true;
-            mentor.isPendingApproval = false;
-        } 
-        else {
-            // For rejection, you might set isApproved false and maybe do something else
-            mentor.isApproved = false;
-            mentor.isPendingApproval = false;
-        }
-
-        await mentor.save();
-        res.status(200).json({ message: `Mentor has been ${approve ? 'approved' : 'rejected'}.` });
-    } 
-    catch (error) {
-        console.error('Error updating mentor approval:', error);
-        res.status(500).json({ error: 'Server error updating mentor approval' });
-    }
-};
 
 module.exports = {
   getPendingMentors,

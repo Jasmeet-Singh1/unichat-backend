@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const Otp = require('../models/OTP');
-const User = require('../models/User');
-const Student = require('../models/Student');
+const User = require('../models/user');
+const Student = require('../models/student');
 const jwt = require('jsonwebtoken');
 
 // Step 2: Verify OTP
