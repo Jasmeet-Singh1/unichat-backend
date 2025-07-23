@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const config = require('config');
 
 const accApprovalRoute = require('./routes/accApproval');
+const cors = require('cors');
 
 const app = express(); //To create express app and will listen to requests adn deal with it
 const PORT = process.env.PORT || 5000;
@@ -15,6 +16,8 @@ app.use(express.json());
 
 // Connect Database
 connectDB();
+
+app.use(cors());
 
 //Middleware to parse JSON body
 app.use(express.json());
