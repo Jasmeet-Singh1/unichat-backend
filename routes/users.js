@@ -5,7 +5,7 @@ const Otp = require('../models/OTP');
 const sendOtpEmail = require('../utils/sendOtpEmail');
 const { updateUserProfile } = require('../controllers/userController');
 
-// Step 1: Initial registration and OTP send
+// Step 1: Initial Student registration and OTP send
 router.post('/register', async (req, res) => {
   const { firstName, lastName, role, username, email, password } = req.body;
 
@@ -27,6 +27,10 @@ router.post('/register', async (req, res) => {
 
     await user.save();
 
+    if (!/^[^\s@]+@student\.kpu\.ca$/i.test(email)) {
+      return res.status(400).json({ message: 'Only KPU emails are allowed.' });
+    }
+
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     await Otp.findOneAndUpdate({ email }, { otp, createdAt: new Date() }, { upsert: true });
 
@@ -35,7 +39,6 @@ router.post('/register', async (req, res) => {
     res.status(200).json({ message: 'User registered. OTP sent to email.' });
   } catch (err) {
     console.error(err);
-    console.error('🔴 REGISTER ERROR:', err);
     res.status(500).json({ message: 'Failed to register user' });
   }
 });
