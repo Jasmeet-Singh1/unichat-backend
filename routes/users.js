@@ -4,7 +4,11 @@ const User = require('../models/user');
 const Otp = require('../models/OTP');
 const sendOtpEmail = require('../utils/sendOtpEmail');
 const { updateUserProfile } = require('../controllers/userController');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
+
+// POST register route
 router.post('/register', async (req, res) => {
 
     const { 
@@ -63,48 +67,52 @@ router.post('/register', async (req, res) => {
   }
 });
 
-module.exports = router; 
-// Step 1: Initial Student registration and OTP send
-/*router.post('/register', async (req, res) => {
-  const { firstName, lastName, role, username, email, password } = req.body;
+// Login route
+router.post('/login', async (req, res) => {
+
+  const { email, password } = req.body;
 
   try {
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(409).json({ message: 'User already exists. Please login.' });
-    }
-
-    const user = new User({
-      firstName,
-      lastName,
-      role,
-      username,
-      email,
-      password,
-      isVerified: false,
+    const user = await User.findOne({ email });
+    
+    if (!user) return res.status(404).json({ 
+      message: 'User not found' 
     });
 
-    await user.save();
+    const isMatch = await bcrypt.compare(password, user.password);
+    
+    if (!isMatch) return res.status(400).json({ 
+      message: 'Invalid credentials' 
+    });
 
-    if (!/^[^\s@]+@student\.kpu\.ca$/i.test(email)) {
-      return res.status(400).json({ message: 'Only KPU emails are allowed.' });
+    if (!user.isVerified) {
+      return res.status(401).json({ 
+        message: 'User not verified. Please verify your email first.' 
+      });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    await Otp.findOneAndUpdate({ email }, { otp, createdAt: new Date() }, { upsert: true });
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: '2h',
+    });
 
-    await sendOtpEmail(email, otp);
-
-    res.status(200).json({ message: 'User registered. OTP sent to email.' });
-  } catch (err) {
+    res.status(200).json({ 
+      token,
+      user: {
+        id:user._id,
+        email: user.email, 
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role:user.role
+      },
+      message: 'Login successful' 
+    });
+  } 
+  catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Failed to register user' });
+    res.status(500).json({ message: 'Login failed' });
   }
 });
 
-// User profile update after login (optional future auth middleware)
-router.put('/profile', updateUserProfile);
-// router.put('/profile', auth, updateUserProfile); // Use when auth is added
 
-module.exports = router;
-*/
+
+module.exports = router; 

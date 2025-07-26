@@ -5,6 +5,7 @@ const Student = require('../models/student'); // Role-specific models
 const Mentor = require('../models/mentor');
 const Alumni = require('../models/alumni');
 const notifyCoursePeersOnNewSignup = require('./notificationController');
+const jwt = require('jsonwebtoken');
 
 // User Registration Controller (Sign Up)
 const SignUp = async (req, res) => {
@@ -97,6 +98,7 @@ const SignUp = async (req, res) => {
 
 // User Login Controller
 const Login = async (req, res) => {
+
   try {
     const { email, password } = req.body;
 
@@ -109,34 +111,32 @@ const Login = async (req, res) => {
     console.log("User found:", user ? user.username : "No user found");
 
     if (!user) {
-      return res.status(401).json({ error: 'Invalid email.' });
+      return res.status(401).json({ error: 'Invalid email' });
     }
-
-    //Logs for troubleshooting
-    console.log("Stored hashed password:", user.password);
-    console.log("Entered plain password:", password);
-    console.log(`DB password: '${user.password}'`);
-    console.log(`Input password: '${password}'`);
-    console.log("Passwords equal (plain check):", user.password === password);
-    console.log("Passwords equal after trim:", user.password.trim() === password.trim());
-
+    
     const isMatch = await bcrypt.compare(password, user.password);
-    console.log("bcrypt.compare result:", isMatch);
-
-
+    
     if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid password.' });
+      return res.status(401).json({ error: 'Invalid password' });
     }
 
     if ((user.role === 'Mentor' || user.role === 'Alumni') && !user.isApproved) {
       return res.status(403).json({ error: 'Account not approved yet by admin.' });
     }
 
+    //create token
+    const token = jwt.sign(
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '2h' }
+    );
+    
     res.status(200).json({
       message: 'Login successful.',
       user: {
         id: user._id,
         username: user.username,
+        email: user.email,
         role: user.role,
         fullName: `${user.firstName} ${user.lastName}`
       }

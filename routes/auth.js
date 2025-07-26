@@ -4,8 +4,9 @@ const Otp = require('../models/OTP');
 const User = require('../models/user');
 const Student = require('../models/student');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 
-// Step 2: Verify OTP
+//Verify OTP
 router.post('/verify-otp', async (req, res) => {
   const { email, otp } = req.body;
 
@@ -30,7 +31,7 @@ router.post('/verify-otp', async (req, res) => {
   }
 });
 
-// Step 3: Complete profile
+// Complete profile
 router.post('/complete-profile', async (req, res) => {
   const { email, bio, programType, program, coursesEnrolled, expectedGradDate, studentClubs } = req.body;
 
