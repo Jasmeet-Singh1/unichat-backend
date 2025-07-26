@@ -13,7 +13,4 @@ router.get('/pending', getPendingMentors);
 
 // Get mentor details by ID
 router.get('/:id', getMentorById);
-
-
-
 module.exports = router;
