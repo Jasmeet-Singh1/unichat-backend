@@ -107,6 +107,10 @@ if (mongoose.models.User) {
         type: Boolean,
         default: false,
       },
+      isApproved: {
+        type: Boolean,
+        default: false,
+      },
     },
     options
   );
