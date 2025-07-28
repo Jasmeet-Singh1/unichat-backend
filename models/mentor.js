@@ -21,13 +21,13 @@ const mentorSchema = new mongoose.Schema ({
         required: true,
         enum: ['A+', 'A', 'A-', 'B+']
       }
-    }],
-    validate: {
+    }]
+    /*validate: {
       validator: function(val) {
         return val.length > 0;
       },
       message: 'At least one course expertise with a good grade is required'
-    }
+    }*/
   },
 
   availability: {
@@ -62,14 +62,14 @@ const mentorSchema = new mongoose.Schema ({
   },
 
   proof: {
-    type: [String],
-    required: true,
+    type: [String]
+    /*required: true,
     validate: {
       validator: function (v) {
         return Array.isArray(v) && v.length > 0;
       },
       message: "At least one supporting file is required for mentor."
-    }
+    }*/
   },
 
   overallGPA: {

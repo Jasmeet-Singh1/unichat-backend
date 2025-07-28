@@ -53,10 +53,21 @@ const approveMentor = async (req, res) => {
         from: config.get('emailUser'),
         to: mentor.email,
         subject: 'Mentor Account Approved',
-        text: `Hello ${mentor.firstName},\n\n
-            Your mentor account has been approved! You can now log in to your account.
-            \n\nBest regards,
-            \nUniChat Team`,
+        text: `
+        Hello ${mentor.firstName},
+
+        We’re excited to let you know that your mentor account on UniChat has been successfully approved by our team.
+
+        You can now log in and start engaging with students and the community:
+
+        🔗 Login: https://your-frontend-url.com/login
+
+        If you have any questions or need assistance, feel free to reach out to us at support@unichat.com.
+
+        Thank you for joining us in shaping meaningful connections!
+
+        Best regards,  
+        UniChat Team`,
       };
 
       transporter.sendMail(mailOptions, (err, info) => {
@@ -89,24 +100,30 @@ const rejectMentor = async (req, res) => {
         from: process.env.EMAIL_USER,
         to: mentor.email,
         subject: 'Mentor Account Rejected',
-        text: `Hello ${mentor.firstName},\n\n
+        text: `Dear ${mentor.firstName},
 
-            We regret to inform you that your mentor
-            account application has been rejected for the following reason(s):
-            \n${reason}\n
-            If you believe this was a mistake, please contact the UniChat support team.
-            \n\nBest regards,
-            \nUniChat Team`,
+        Thank you for your interest in becoming a mentor at UniChat. After admin review, we regret to inform you that your registration has not been approved this time.
+
+        This decision is based on internal criteria, and we appreciate your time and effort.
+
+        If you believe this is a mistake or wish to reapply in the future, you can reach us at devteam.unichat@gmail.com.
+
+        Best wishes,  
+        The UniChat Team`,
       };
 
       transporter.sendMail(mailOptions, (err, info) => {
         if (err) console.error('Error sending rejection email:', err);
         else console.log('Rejection email sent:', info.response);
       });
+
+      //Del user from database
+      await Mentor.findByIdAndDelete(mentorId);
     }
 
     res.json({ message: 'Mentor rejected and notified successfully.' });
-  } catch (err) {
+  } 
+  catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error while rejecting mentor.' });
   }

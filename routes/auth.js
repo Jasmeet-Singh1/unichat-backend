@@ -3,9 +3,11 @@ const router = express.Router();
 const Otp = require('../models/OTP');
 const User = require('../models/user');
 const Student = require('../models/student');
+const Mentor = require ('../models/mentor');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 
-// Step 2: Verify OTP
+//Verify OTP
 router.post('/verify-otp', async (req, res) => {
   const { email, otp } = req.body;
 
@@ -30,7 +32,7 @@ router.post('/verify-otp', async (req, res) => {
   }
 });
 
-// Step 3: Complete profile
+// Complete profile for students.
 router.post('/complete-profile', async (req, res) => {
   const { email, bio, programType, program, coursesEnrolled, expectedGradDate, studentClubs } = req.body;
 
@@ -69,5 +71,46 @@ router.post('/complete-profile', async (req, res) => {
     res.status(500).json({ message: 'Profile completion failed' });
   }
 });
+
+
+//complete profile for mentors (DRAFT) DO NOT UNCOMMENT THIS PART UNTIL ADN UNLESS TESTED - Harleen 
+/*router.post('/complete-mentor-profile', async (req, res) => {
+  
+  try {
+    const {email, proof, courseExpertise, availability, expectedGradDate,overallGPA,showGPA} = req.body;
+
+    if (!user || !user.isVerified) {
+      return res.status(400).json({ message: 'User not found or not verified' });
+    }
+
+    const mentor = await Mentor.findById(user._id);
+    if (!mentor) {
+      return res.status(404).json({ message: 'Mentor profile not found.' });
+    }
+
+    mentor.proof = proof;
+    mentor.courseExpertise = courseExpertise;
+    mentor.availability = availability || [];
+    mentor.expectedGradDate = expectedGradDate || null;
+    mentor.overallGPA = overallGPA || null;
+    mentor.showGPA = showGPA ?? false;
+
+    mentor.isPendingApproval = true;
+    mentor.isApproved = false;
+
+    await mentor.save();
+    res.status(200).json({ message: 'Mentor profile completed and pending approval.' });
+  } 
+  
+  catch (err) {
+    console.error('MENTOR PROFILE ERROR:', err);
+    res.status(500).json({
+      message: 'Failed to complete mentor profile.',
+      error: err.message,
+    });
+  }
+  
+});*/
+
 
 module.exports = router;
