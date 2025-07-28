@@ -3,7 +3,6 @@ const router = express.Router();
 const User = require('../models/user');
 const Otp = require('../models/OTP');
 const sendOtpEmail = require('../utils/sendOtpEmail');
-const { updateUserProfile } = require('../controllers/userController');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
@@ -59,7 +58,7 @@ router.post('/register', async (req, res) => {
 
     res.status(200).json({ message: 'User registered. OTP sent to email.' });
   } catch (err) {
-    console.error("❌ REGISTER ERROR:", err);
+    console.error("REGISTER ERROR:", err);
     res.status(500).json({
       message: 'Failed to register user',
       error: err.message || err.toString(),
@@ -90,7 +89,11 @@ router.post('/login', async (req, res) => {
         message: 'User not verified. Please verify your email first.' 
       });
     }
-
+    
+    if (user.role === 'mentor' && user.isApproved === false) {
+      return res.status(403).json({ 
+        message: 'Your account is awaiting admin approval.' });
+    }
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
       expiresIn: '2h',
     });
@@ -112,7 +115,5 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ message: 'Login failed' });
   }
 });
-
-
 
 module.exports = router; 

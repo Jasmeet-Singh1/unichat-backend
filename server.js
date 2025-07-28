@@ -17,16 +17,16 @@ app.use(express.json());
 // Connect Database
 connectDB();
 
-//app.use(cors());
-
 // Define Routes
+
 const accApprovalRoute = require('./routes/accApproval');
 const usersRoute = require('./routes/users');
 app.use('/api/users', usersRoute);
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/getClubs', require('./routes/clubs'));
-app.use('/api/programs', require('./routes/programs'));
-app.use('/api/mentorApproval', require('./routes/accApproval'));
+app.use('/api/auth', require('./routes/auth'));//realated to authentication 
+app.use('/api/getClubs', require('./routes/clubs'));//get clubs from db
+app.use('/api/programs', require('./routes/programs'));// get programs from db
+app.use('/api/mentorApproval', require('./routes/accApproval')); //related to admin approving mentor accounts
+app.use('/api/profile', require('./routes/updateProfile'));//edit user profile details (student and mentor)
 
 //Root Routes
 app.get('/', (req, res) => res.json({ msg: 'Welcome to UniChat API...' }));
