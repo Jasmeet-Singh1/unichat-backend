@@ -55,9 +55,6 @@ if (mongoose.models.User) {
         },
       },
 
-      //resetPasswordToken: String,
-      //resetPasswordExpires: Date,
-
       bio: { type: String, default: '' },
 
       role: {
