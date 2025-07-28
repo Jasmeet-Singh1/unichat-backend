@@ -40,6 +40,7 @@ router.post('/register', async (req, res) => {
       email,
       password,
       isVerified: false,
+      isApproed: false,
     });
 
     await user.save();

@@ -3,13 +3,13 @@ const connectDB = require('./config/db'); // Important for Database
 const dotenv = require('dotenv');
 const config = require('config');
 const cors = require('cors');
+const metadataRoutes = require('./routes/metadata');
 
 dotenv.config();
 const PORT = process.env.PORT || 5000;
 
 const app = express(); //To create express app and will listen to requests adn deal with it
 app.use(cors());
-
 
 //Middleware
 app.use(express.json());
@@ -21,6 +21,7 @@ connectDB();
 
 const accApprovalRoute = require('./routes/accApproval');
 const usersRoute = require('./routes/users');
+app.use('/api/metadata', metadataRoutes);
 app.use('/api/users', usersRoute);
 app.use('/api/auth', require('./routes/auth'));//realated to authentication 
 app.use('/api/getClubs', require('./routes/clubs'));//get clubs from db
