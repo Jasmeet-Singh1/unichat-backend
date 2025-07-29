@@ -117,8 +117,4 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// User profile update after login (optional future auth middleware)
-router.put('/profile', updateUserProfile);
-// router.put('/profile', auth, updateUserProfile); // Use when auth is added
-
-module.exports = router; 
+module.exports = router;
