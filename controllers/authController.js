@@ -68,7 +68,7 @@ const SignUp = async (req, res) => {
         email,
         password,
         isVerified: false,
-        isApproed: false,
+        isApproved: false,
       });
 
       await user.save();
@@ -134,9 +134,6 @@ const SignUp = async (req, res) => {
 
     // Save the user to the database (Mongoose pre-save hook will hash password here)
     await newUser.save();
-
-    // Notify existing user if needed
-    await notifyCoursePeersOnNewSignup(newUser);
 
     // Return success message
     res.status(201).json({

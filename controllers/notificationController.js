@@ -1,34 +1,37 @@
-
 // existing users getting notification when users with same course joins 
 const Notification = require('../models/notification');
 const User = require('../models/user');
 
 const notifyCoursePeersOnNewSignup = async (newUser) => {
-
     try {
-        // users with same course, semester, and year
-        const peers = await User.find({
-            course: newUser.course,
-            semester: newUser.semester,
-            year: newUser.year,
-            _id: { $ne: newUser._id },
-        });
+        const newCourses = newUser.coursesEnrolled || [];
 
-        if (!peers.length) return;
+        for (const newCourse of newCourses) {
+            const peers = await User.find({
+                _id: { $ne: newUser._id },
+                'coursesEnrolled': {
+                    $elemMatch: {course: newCourse.course,semester: newCourse.semester,year: newCourse.year}
+                }   
+            });
 
-        // Create notifications
-        const notifications = peers.map((peer) => ({
-            userId: peer._id,
-            type: 'new user',
-            message: `${newUser.name} has joined your ${newUser.course} (${newUser.semester} ${newUser.year}) group.`,
-            relatedId: newUser._id,
-        }));
+            console.log(`🔍 Found ${peers.length} peers for ${newCourse.course} (${newCourse.semester} ${newCourse.year})`);
 
-        await Notification.insertMany(notifications);
+            if (!peers.length) continue;
+
+            const notifications = peers.map(peer => ({
+                userId: peer._id,
+                type: 'new user',
+                message: `${newUser.firstName} ${newUser.lastName} has joined your ${newCourse.course} (${newCourse.semester} ${newCourse.year}) group.`,
+                relatedId: newUser._id,
+            }));
+
+            await Notification.insertMany(notifications);
+            console.log(`✅ Notifications created for ${peers.length} peers.`);
+        }
     } 
     
     catch (error) {
-        console.error('Error notifying course peers:', error.message);
+        console.error('❌ Error notifying course peers:', error.message);
     }
 };
 

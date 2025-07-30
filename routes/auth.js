@@ -6,6 +6,8 @@ const Student = require('../models/student');
 const Mentor = require ('../models/mentor');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const notifyCoursePeersOnNewSignup = require('../controllers/notificationController');
+
 
 //Verify OTP
 router.post('/verify-otp', async (req, res) => {
@@ -49,6 +51,8 @@ router.post('/complete-profile', async (req, res) => {
     user.coursesEnrolled = coursesEnrolled;
     await user.save();
 
+    //Notify peers in same course details. 
+    await notifyCoursePeersOnNewSignup(user);
     // Handle discriminator fields
     if (user.role === 'Student') {
       await Student.findOneAndUpdate(
