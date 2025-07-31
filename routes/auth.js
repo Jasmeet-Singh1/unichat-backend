@@ -50,6 +50,7 @@ router.post('/complete-profile', async (req, res) => {
     user.coursesEnrolled = coursesEnrolled;
     await user.save();
 
+    console.log('coursesEnrolled', expectedGradDate);
     //Notify peers in same course details.
     await notifyCoursePeersOnNewSignup(user);
     // Handle discriminator fields
@@ -76,11 +77,24 @@ router.post('/complete-profile', async (req, res) => {
 });
 
 //complete profile for mentors (DRAFT) DO NOT UNCOMMENT THIS PART UNTIL ADN UNLESS TESTED - Harleen
-/*router.post('/complete-mentor-profile', async (req, res) => {
-  
-  try {
-    const {email, proof, courseExpertise, availability, expectedGradDate,overallGPA,showGPA} = req.body;
 
+//Changed few things and Tested by Jasmeet✅
+router.post('/complete-mentor-profile', async (req, res) => {
+  try {
+    const {
+      email,
+      bio,
+      programType,
+      program,
+      coursesEnrolled,
+      proof,
+      courseExpertise,
+      availability,
+      expectedGradDate,
+      overallGPA,
+      showGPA,
+    } = req.body;
+    const user = await User.findOne({ email });
     if (!user || !user.isVerified) {
       return res.status(400).json({ message: 'User not found or not verified' });
     }
@@ -89,11 +103,14 @@ router.post('/complete-profile', async (req, res) => {
     if (!mentor) {
       return res.status(404).json({ message: 'Mentor profile not found.' });
     }
-
-    mentor.proof = proof;
-    mentor.courseExpertise = courseExpertise;
-    mentor.availability = availability || [];
+    mentor.bio = bio;
+    mentor.programType = programType;
+    mentor.program = program;
+    mentor.coursesEnrolled = coursesEnrolled;
     mentor.expectedGradDate = expectedGradDate || null;
+    mentor.courseExpertise = courseExpertise || [];
+    mentor.availability = availability || [];
+    mentor.proof = proof;
     mentor.overallGPA = overallGPA || null;
     mentor.showGPA = showGPA ?? false;
 
@@ -102,16 +119,13 @@ router.post('/complete-profile', async (req, res) => {
 
     await mentor.save();
     res.status(200).json({ message: 'Mentor profile completed and pending approval.' });
-  } 
-  
-  catch (err) {
+  } catch (err) {
     console.error('MENTOR PROFILE ERROR:', err);
     res.status(500).json({
       message: 'Failed to complete mentor profile.',
       error: err.message,
     });
   }
-  
-});*/
+});
 
 module.exports = router;

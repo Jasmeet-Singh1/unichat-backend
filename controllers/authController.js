@@ -55,32 +55,6 @@ const SignUp = async (req, res) => {
 
     let newUser; // Placeholder for the user object based on role
 
-    // Create a new Student user (Initial)
-    // if (role === 'Student') {
-    //   const user = new User({
-    //     firstName,
-    //     lastName,
-    //     role,
-    //     username,
-    //     email,
-    //     password,
-    //     isVerified: false,
-    //     isApproved: false,
-    //   });
-
-    //   await user.save();
-    //   console.log('✅ User saved to DB:', user.email);
-
-    //   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    //   await Otp.findOneAndUpdate({ email }, { otp, createdAt: new Date() }, { upsert: true });
-
-    //   console.log('🛂 OTP generated:', otp);
-
-    //   await sendOtpEmail(email, otp);
-
-    //   res.status(200).json({ message: 'User registered. OTP sent to email.' });
-    // }
-
     // Create a new Mentor user (requires approval)
     if (role === 'Mentor') {
       newUser = new Mentor({
