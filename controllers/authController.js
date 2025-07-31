@@ -49,9 +49,6 @@ const SignUp = async (req, res) => {
     if (role === 'Mentor' && !email.toLowerCase().endsWith('@student.kpu.ca')) {
       return res.status(400).json({ error: 'Mentor Email must end with @student.kpu.ca' });
     }
-    if (role === 'Student' && !email.toLowerCase().endsWith('@student.kpu.ca')) {
-      return res.status(400).json({ error: 'Student Email must end with @student.kpu.ca' });
-    }
 
     // DO NOT hash here — just pass the plain password and rely on Mongoose pre-save hook to hash
     const hashedPassword = password; // assign password directly
@@ -59,33 +56,33 @@ const SignUp = async (req, res) => {
     let newUser; // Placeholder for the user object based on role
 
     // Create a new Student user (Initial)
-    if (role === 'Student') {
-      const user = new User({
-        firstName,
-        lastName,
-        role,
-        username,
-        email,
-        password,
-        isVerified: false,
-        isApproved: false,
-      });
+    // if (role === 'Student') {
+    //   const user = new User({
+    //     firstName,
+    //     lastName,
+    //     role,
+    //     username,
+    //     email,
+    //     password,
+    //     isVerified: false,
+    //     isApproved: false,
+    //   });
 
-      await user.save();
-      console.log('✅ User saved to DB:', user.email);
+    //   await user.save();
+    //   console.log('✅ User saved to DB:', user.email);
 
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      await Otp.findOneAndUpdate({ email }, { otp, createdAt: new Date() }, { upsert: true });
+    //   const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    //   await Otp.findOneAndUpdate({ email }, { otp, createdAt: new Date() }, { upsert: true });
 
-      console.log('🛂 OTP generated:', otp);
+    //   console.log('🛂 OTP generated:', otp);
 
-      await sendOtpEmail(email, otp);
+    //   await sendOtpEmail(email, otp);
 
-      res.status(200).json({ message: 'User registered. OTP sent to email.' });
-    }
+    //   res.status(200).json({ message: 'User registered. OTP sent to email.' });
+    // }
 
     // Create a new Mentor user (requires approval)
-    else if (role === 'Mentor') {
+    if (role === 'Mentor') {
       newUser = new Mentor({
         firstName,
         lastName,

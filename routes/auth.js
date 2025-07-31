@@ -3,11 +3,10 @@ const router = express.Router();
 const Otp = require('../models/OTP');
 const User = require('../models/user');
 const Student = require('../models/student');
-const Mentor = require ('../models/mentor');
+const Mentor = require('../models/mentor');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const notifyCoursePeersOnNewSignup = require('../controllers/notificationController');
-
 
 //Verify OTP
 router.post('/verify-otp', async (req, res) => {
@@ -51,7 +50,7 @@ router.post('/complete-profile', async (req, res) => {
     user.coursesEnrolled = coursesEnrolled;
     await user.save();
 
-    //Notify peers in same course details. 
+    //Notify peers in same course details.
     await notifyCoursePeersOnNewSignup(user);
     // Handle discriminator fields
     if (user.role === 'Student') {
@@ -76,8 +75,7 @@ router.post('/complete-profile', async (req, res) => {
   }
 });
 
-
-//complete profile for mentors (DRAFT) DO NOT UNCOMMENT THIS PART UNTIL ADN UNLESS TESTED - Harleen 
+//complete profile for mentors (DRAFT) DO NOT UNCOMMENT THIS PART UNTIL ADN UNLESS TESTED - Harleen
 /*router.post('/complete-mentor-profile', async (req, res) => {
   
   try {
@@ -115,6 +113,5 @@ router.post('/complete-profile', async (req, res) => {
   }
   
 });*/
-
 
 module.exports = router;
