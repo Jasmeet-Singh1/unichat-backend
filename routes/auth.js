@@ -6,7 +6,7 @@ const Student = require('../models/student');
 const Mentor = require('../models/mentor');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
-const notifyCoursePeersOnNewSignup = require('../controllers/notificationController');
+const { notifyCoursePeersOnNewSignup } = require('../controllers/notifyCoursePeersController');
 
 //Verify OTP
 router.post('/verify-otp', async (req, res) => {
