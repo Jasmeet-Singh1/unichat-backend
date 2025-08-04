@@ -38,19 +38,18 @@ const mentorSchema = new mongoose.Schema(
           day: {
             type: String,
             enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
-            required: true,
           },
           from: {
             type: String,
-            // hour: { type: Number, min: 1, max: 12, required: true },
-            // minute: { type: Number, min: 0, max: 59, required: true },
-            // ampm: { type: String, enum: ['AM', 'PM'], required: true },
+            hour: { type: Number, min: 1, max: 12, },
+            minute: { type: Number, min: 0, max: 59, },
+            ampm: { type: String, enum: ['AM', 'PM'],  },
           },
           to: {
             type: String,
-            // hour: { type: Number, min: 1, max: 12, required: true },
-            // minute: { type: Number, min: 0, max: 59, required: true },
-            // ampm: { type: String, enum: ['AM', 'PM'], required: true },
+            hour: { type: Number, min: 1, max: 12},
+            minute: { type: Number, min: 0, max: 59 },
+            ampm: { type: String, enum: ['AM', 'PM'] },
           },
         },
       ],
@@ -68,14 +67,13 @@ const mentorSchema = new mongoose.Schema(
     },
 
     proof: {
-      // type: [String]
-      /*required: true,
+      type: [String],
+      required: true,
     validate: {
       validator: function (v) {
         return Array.isArray(v) && v.length > 0;
       },
       message: "At least one supporting file is required for mentor."
-    }*/
     },
 
     overallGPA: {
@@ -103,7 +101,7 @@ const mentorSchema = new mongoose.Schema(
     }
   }*/
   },
-  { timestamps: true }
+},{ timestamps: true }
 );
 
 const Mentor = User.discriminator('Mentor', mentorSchema);
