@@ -1,3 +1,4 @@
+//-Harleen
 const StudentClub = require('../models/club');
 
 const getStudentClubs = async (req, res) => {

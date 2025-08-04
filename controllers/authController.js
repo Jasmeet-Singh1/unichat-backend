@@ -1,3 +1,4 @@
+//-Harleen
 // Import required modules and models
 const bcrypt = require('bcrypt');
 const User = require('../models/user'); // Base User model for checking uniqueness
