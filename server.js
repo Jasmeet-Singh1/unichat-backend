@@ -25,12 +25,13 @@ app.use(express.json());
 // Define Routes
 
 app.use('/api/users', require('./routes/users'));
-app.use('/api/auth', require('./routes/auth'));
 app.use('/api/getClubs', require('./routes/clubs'));
 app.use('/api/programs', require('./routes/programs'));
 app.use('/api/programs/:id', require('./routes/programs'));
 app.use('/api/programs/:id/courses', require('./routes/programs'));
 app.use('/api/mentorApproval', require('./routes/accApproval'));
+app.use('/api/userProfile', require('./routes/userProfile'));
+app.use('/api/profile', require('./routes/updateProfile'));
 //Root Routes
 app.get('/', (req, res) => res.json({ msg: 'Welcome to UniChat API...' }));
 
