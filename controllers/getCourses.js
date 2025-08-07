@@ -24,4 +24,4 @@ const getCourses = async (req, res) => {
   }
 };
 
-module.exports = getCourses;
+module.exports = {getCourses};
