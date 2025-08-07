@@ -1,4 +1,24 @@
 const User = require('../models/user');
+const Student = require('../models/student');
+const Mentor = require('../models/mentor'); 
+const Alumni = require('../models/alumni');
+const Course = require('../models/course');
+const StudentClub = require('../models/club');
+const Program = require('../models/program');
+
+// Helper function to find user across all role collections
+const findUserById = async (userId) => {
+    return (await Student.findById(userId)
+        .populate({
+            path: 'studentClubs.club',
+            model: 'studentClub',
+        })
+        .lean()) ||
+    (await Mentor.findById(userId)
+        .lean()) ||
+    (await Alumni.findById(userId)
+        .lean());
+};
 
 exports.getUserProfile = async (req, res) => {
     try {
@@ -9,7 +29,11 @@ exports.getUserProfile = async (req, res) => {
         // Allow access if requesting own profile,
         // Otherwise check if requesting user exists and is an admin
         if (requestedUserId !== loggedInUserId) {
-            const requestingUser = await User.findById(loggedInUserId);
+            // Look for the requesting user across all role collections
+            const requestingUser = 
+                (await Student.findById(loggedInUserId)) ||
+                (await Mentor.findById(loggedInUserId)) ||
+                (await Alumni.findById(loggedInUserId));
 
             if (!requestingUser || requestingUser.role !== 'admin') {
                 // If user doesn't exist or isn't admin, block access
@@ -17,19 +41,8 @@ exports.getUserProfile = async (req, res) => {
             }
         }
 
-        // Fetch the requested user profile from DB, including related info
-        const user = await User.findById(requestedUserId)
-        .populate('program')
-        .populate({
-            path: 'coursesEnrolled.course',
-            model: 'Course',
-        })
-        .populate({
-            path: 'studentClubs.club',
-            model: 'StudentClub',
-        })
-        
-        .lean(); //For faster read-only query results
+        // Fetch the requested user profile from DB across all role collections
+        const user = await findUserById(requestedUserId);
 
         if (!user) {
             // If user not found, return 404 error
