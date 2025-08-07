@@ -106,11 +106,7 @@ if (mongoose.models.User) {
       isVerified: {
         type: Boolean,
         default: false,
-      },
-      /*isApproved: {
-        type: Boolean,
-        default: false,
-      },*/
+      }
     },
     options
   );
