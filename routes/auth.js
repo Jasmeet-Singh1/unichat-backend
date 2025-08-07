@@ -1,3 +1,4 @@
+/*
 const express = require('express');
 const router = express.Router();
 const Otp = require('../models/OTP');
@@ -7,6 +8,8 @@ const Mentor = require('../models/mentor');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const { notifyCoursePeersOnNewSignup } = require('../controllers/notifyCoursePeersController');
+const { SignUp, Login } = require('../controllers/authController');
+
 
 //Verify OTP
 router.post('/verify-otp', async (req, res) => {
@@ -127,5 +130,6 @@ router.post('/complete-mentor-profile', async (req, res) => {
     });
   }
 });
-
+router.post('/signup', SignUp);  
 module.exports = router;
+*/

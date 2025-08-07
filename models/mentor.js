@@ -25,11 +25,11 @@ const mentorSchema = new mongoose.Schema(
         },
       ],
       /*validate: {
-      validator: function(val) {
-        return val.length > 0;
-      },
-      message: 'At least one course expertise with a good grade is required'
-    }*/
+        validator: function(val) {
+          return val.length > 0;
+        },
+        message: 'At least one course expertise with a good grade is required'
+      }*/
     },
 
     availability: {
@@ -40,14 +40,12 @@ const mentorSchema = new mongoose.Schema(
             enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
           },
           from: {
-            type: String,
-            hour: { type: Number, min: 1, max: 12, },
-            minute: { type: Number, min: 0, max: 59, },
-            ampm: { type: String, enum: ['AM', 'PM'],  },
+            hour: { type: Number, min: 1, max: 12 },
+            minute: { type: Number, min: 0, max: 59 },
+            ampm: { type: String, enum: ['AM', 'PM'] },
           },
           to: {
-            type: String,
-            hour: { type: Number, min: 1, max: 12},
+            hour: { type: Number, min: 1, max: 12 },
             minute: { type: Number, min: 0, max: 59 },
             ampm: { type: String, enum: ['AM', 'PM'] },
           },
@@ -67,13 +65,7 @@ const mentorSchema = new mongoose.Schema(
     },
 
     proof: {
-      type: [String],
-      required: true,
-    validate: {
-      validator: function (v) {
-        return Array.isArray(v) && v.length > 0;
-      },
-      message: "At least one supporting file is required for mentor."
+      type: [String]
     },
 
     overallGPA: {
@@ -86,22 +78,22 @@ const mentorSchema = new mongoose.Schema(
     },
 
     /* updateGpaReq: {
-    requested: { type: Boolean, default: false },
-    submittedAt: { type: Date },
-    message: { type: String },
-    proofFiles: {
-      type: [String],
-      validate: {
-        validator: function (v) {
-          if (!v) return true; // validate only if provided
-          return Array.isArray(v) && v.length > 0;
-        },
-        message: "At least one supporting file is required."
+      requested: { type: Boolean, default: false },
+      submittedAt: { type: Date },
+      message: { type: String },
+      proofFiles: {
+        type: [String],
+        validate: {
+          validator: function (v) {
+            if (!v) return true; // validate only if provided
+            return Array.isArray(v) && v.length > 0;
+          },
+          message: "At least one supporting file is required."
+        }
       }
-    }
-  }*/
+    }*/
   },
-},{ timestamps: true }
+  { timestamps: true }
 );
 
 const Mentor = User.discriminator('Mentor', mentorSchema);
