@@ -157,151 +157,93 @@ exports.getDirectMessages = async (req, res) => {
 };
 
 // Get conversations for frontend (NEW - required by frontend)
+// Update your getConversations function in chatController.js
+
+// Add this SIMPLE version to your chatController.js to test
 exports.getConversations = async (req, res) => {
   try {
-    const userId = req.user.userId; // Using your existing JWT structure
-    console.log('getConversations called for user:', userId);
+    console.log('getConversations called, user:', req.user);
+    const userId = req.user.userId; 
+    
+    console.log('Getting conversations for userId:', userId);
     
     // Get current user info
     const currentUser = await getUserById(userId);
     if (!currentUser) {
+      console.error('Current user not found:', userId);
       return res.status(404).json({ error: 'User not found' });
     }
     
-    // Get user's groups
-    const groups = await Group.find({ members: userId })
-      .sort({ updatedAt: -1 });
-
-    console.log('Found groups:', groups.length);
-
-    // Get user's direct message conversations
+    console.log('Current user found:', currentUser.firstName);
+    
+    // For now, let's just get ALL direct messages involving this user
     const directMessages = await DirectMessage.find({
       $or: [{ sender: userId }, { receiver: userId }]
     }).sort({ timestamp: -1 });
-
+    
     console.log('Found direct messages:', directMessages.length);
-
-    // Create conversations array
+    
+    // Create a simple conversations array
     const conversations = [];
-
-    // Add groups
-    for (const group of groups) {
-      const lastMessage = await GroupMessage.findOne({ groupId: group._id })
-        .sort({ timestamp: -1 });
+    const processedUsers = new Set();
+    
+    for (const dm of directMessages) {
+      const otherUserId = dm.sender.toString() === userId ? dm.receiver : dm.sender;
       
-      let lastMessageSender = null;
-      if (lastMessage) {
-        lastMessageSender = await getUserById(lastMessage.sender);
-      }
-
-      // Get group members info
-      const membersInfo = [];
-      for (const memberId of group.members) {
-        const memberUser = await getUserById(memberId);
-        if (memberUser) {
-          membersInfo.push({
-            id: memberUser._id,
-            firstName: memberUser.firstName,
-            lastName: memberUser.lastName || '',
-            email: memberUser.email,
-            name: `${memberUser.firstName} ${memberUser.lastName || ''}`.trim(),
-            avatar: null
-          });
-        }
-      }
-
+      // Skip if we already processed this user
+      if (processedUsers.has(otherUserId.toString())) continue;
+      processedUsers.add(otherUserId.toString());
+      
+      const otherUser = await getUserById(otherUserId);
+      if (!otherUser) continue;
+      
+      // Create chat ID
+      const chatId = userId < otherUserId.toString() 
+        ? `direct_${userId}_${otherUserId}`
+        : `direct_${otherUserId}_${userId}`;
+      
       conversations.push({
-        id: group._id,
-        name: group.name,
-        type: 'group',
-        members: membersInfo,
-        avatar: null,
-        description: group.description,
-        lastMessage: lastMessage ? {
-          text: lastMessage.message,
-          timestamp: lastMessage.timestamp,
-          senderId: lastMessage.sender,
-          senderName: lastMessageSender ? `${lastMessageSender.firstName} ${lastMessageSender.lastName || ''}`.trim() : 'Unknown'
-        } : null,
-        updatedAt: group.updatedAt || group.createdAt,
+        id: chatId,
+        name: `${otherUser.firstName} ${otherUser.lastName || ''}`.trim(),
+        type: 'direct',
+        members: [
+          { 
+            id: userId,
+            name: `${currentUser.firstName} ${currentUser.lastName || ''}`.trim(),
+            firstName: currentUser.firstName,
+            lastName: currentUser.lastName || '',
+            email: currentUser.email
+          },
+          { 
+            id: otherUser._id, 
+            name: `${otherUser.firstName} ${otherUser.lastName || ''}`.trim(),
+            firstName: otherUser.firstName,
+            lastName: otherUser.lastName || '',
+            email: otherUser.email
+          }
+        ],
+        lastMessage: {
+          text: dm.message,
+          timestamp: dm.timestamp,
+          senderId: dm.sender,
+          senderName: dm.sender.toString() === userId ? currentUser.firstName : otherUser.firstName
+        },
+        updatedAt: dm.timestamp,
         unreadCount: 0,
         pinned: false,
         muted: false,
         archived: false
       });
     }
-
-    // Add direct message conversations
-    const directChats = new Map();
     
-    for (const dm of directMessages) {
-      const otherUserId = dm.sender.toString() === userId ? dm.receiver : dm.sender;
-      const sender = await getUserById(dm.sender);
-      const receiver = await getUserById(dm.receiver);
-      const otherUser = dm.sender.toString() === userId ? receiver : sender;
-      
-      if (!otherUser) continue;
-      
-      const chatId = `direct_${Math.min(userId, otherUserId)}_${Math.max(userId, otherUserId)}`;
-      
-      if (!directChats.has(otherUserId.toString()) || 
-          new Date(dm.timestamp) > new Date(directChats.get(otherUserId.toString()).lastMessage.timestamp)) {
-        
-        directChats.set(otherUserId.toString(), {
-          id: chatId,
-          name: `${otherUser.firstName} ${otherUser.lastName || ''}`.trim(),
-          type: 'direct',
-          members: [
-            { 
-              id: userId,
-              name: `${currentUser.firstName} ${currentUser.lastName || ''}`.trim(),
-              firstName: currentUser.firstName,
-              lastName: currentUser.lastName || '',
-              email: currentUser.email,
-              avatar: null
-            },
-            { 
-              id: otherUser._id, 
-              name: `${otherUser.firstName} ${otherUser.lastName || ''}`.trim(),
-              firstName: otherUser.firstName,
-              lastName: otherUser.lastName || '',
-              email: otherUser.email,
-              avatar: null
-            }
-          ],
-          avatar: null,
-          lastMessage: {
-            text: dm.message,
-            timestamp: dm.timestamp,
-            senderId: dm.sender,
-            senderName: sender ? `${sender.firstName} ${sender.lastName || ''}`.trim() : 'Unknown'
-          },
-          updatedAt: dm.timestamp,
-          unreadCount: 0,
-          pinned: false,
-          muted: false,
-          archived: false
-        });
-      }
-    }
-
-    conversations.push(...Array.from(directChats.values()));
-
-    // Sort by most recent activity
-    conversations.sort((a, b) => {
-      const aTime = new Date(a.lastMessage?.timestamp || a.updatedAt || 0);
-      const bTime = new Date(b.lastMessage?.timestamp || b.updatedAt || 0);
-      return bTime - aTime;
-    });
-
     console.log('Returning conversations:', conversations.length);
     res.json(conversations);
+    
   } catch (error) {
-    console.error('Error fetching conversations:', error);
+    console.error('Error in getConversations:', error);
     res.status(500).json({ error: error.message });
   }
 };
-
 // Get messages for frontend format (NEW - adapts your existing data)
 exports.getMessagesForChat = async (req, res) => {
   try {
@@ -369,24 +311,54 @@ exports.getMessagesForChat = async (req, res) => {
 };
 
 // Send message for frontend (NEW - adapts your existing methods)
+// Send message for frontend (IMPROVED with better validation)
 exports.sendMessage = async (req, res) => {
   try {
     const { chatId, text, type = 'text', attachments = [] } = req.body;
     const senderId = req.user.userId;
-    console.log('sendMessage called:', { chatId, senderId, text: text.substring(0, 50) + '...' });
+    console.log('sendMessage called:', { chatId, senderId, text: text?.substring(0, 50) + '...' });
+
+    // Validate input
+    if (!chatId) {
+      return res.status(400).json({ error: 'Chat ID is required' });
+    }
+    if (!text || text.trim() === '') {
+      return res.status(400).json({ error: 'Message text is required' });
+    }
 
     let savedMessage;
     let sender = await getUserById(senderId);
+    
+    if (!sender) {
+      return res.status(404).json({ error: 'Sender not found' });
+    }
 
     if (chatId.startsWith('direct_')) {
       // Direct message
-      const [_, user1, user2] = chatId.split('_');
+      const chatParts = chatId.split('_');
+      if (chatParts.length !== 3) {
+        return res.status(400).json({ error: 'Invalid direct chat ID format' });
+      }
+      
+      const [_, user1, user2] = chatParts;
+      
+      // Validate that senderId is one of the users in the chat
+      if (senderId !== user1 && senderId !== user2) {
+        return res.status(403).json({ error: 'Not authorized to send message to this chat' });
+      }
+      
       const receiverId = user1 === senderId ? user2 : user1;
+      
+      // Validate receiver exists
+      const receiver = await getUserById(receiverId);
+      if (!receiver) {
+        return res.status(404).json({ error: 'Receiver not found' });
+      }
 
       const directMessage = new DirectMessage({
         sender: senderId,
         receiver: receiverId,
-        message: text,
+        message: text.trim(),
         timestamp: new Date(),
         attachments: attachments
       });
@@ -397,17 +369,29 @@ exports.sendMessage = async (req, res) => {
       await Notification.create({
         userId: receiverId,
         type: "message",
-        message: "You have a new direct message.",
+        message: `You have a new direct message from ${sender.firstName}.`,
         relatedId: savedMessage._id,
         relatedModel: "directMessage",
       });
 
+      console.log('Direct message saved:', savedMessage._id);
+
     } else {
       // Group message
+      const group = await Group.findById(chatId);
+      if (!group) {
+        return res.status(404).json({ error: 'Group not found' });
+      }
+      
+      // Check if sender is a member of the group
+      if (!group.members.includes(senderId)) {
+        return res.status(403).json({ error: 'Not authorized to send message to this group' });
+      }
+
       const groupMessage = new GroupMessage({
         groupId: chatId,
         sender: senderId,
-        message: text,
+        message: text.trim(),
         timestamp: new Date(),
         attachments: attachments
       });
@@ -415,20 +399,21 @@ exports.sendMessage = async (req, res) => {
       savedMessage = await groupMessage.save();
 
       // Notify group members (your existing logic)
-      const group = await Group.findById(chatId);
-      if (group) {
-        const recipientIds = group.members.filter((id) => id.toString() !== senderId);
+      const recipientIds = group.members.filter((id) => id.toString() !== senderId);
 
+      if (recipientIds.length > 0) {
         const notifications = recipientIds.map((userId) => ({
           userId,
           type: "message",
-          message: `New group message in ${group.name}`,
+          message: `New group message in ${group.name} from ${sender.firstName}`,
           relatedId: savedMessage._id,
           relatedModel: "groupMessage",
         }));
 
         await Notification.insertMany(notifications);
       }
+
+      console.log('Group message saved:', savedMessage._id);
     }
 
     // Format response for frontend
@@ -445,10 +430,10 @@ exports.sendMessage = async (req, res) => {
       attachments: savedMessage.attachments || []
     };
 
-    console.log('Message saved successfully');
+    console.log('Message saved successfully, returning response');
     res.status(201).json(responseMessage);
   } catch (error) {
     console.error('Error sending message:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to send message', details: error.message });
   }
 };
