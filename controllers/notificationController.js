@@ -3,6 +3,13 @@ const Notification = require('../models/notification');
 // Get all notifications for a user
 exports.getUserNotifications = async (req, res) => {
   try {
+    // Add cache-control headers
+    res.set({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+    
     const notifications = await Notification.find({ userId: req.params.userId }).sort({ createdAt: -1 });
     res.json(notifications);
   } catch (err) {
