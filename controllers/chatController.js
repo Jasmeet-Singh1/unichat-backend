@@ -1,7 +1,7 @@
 const Group = require("../models/group");
 const DirectMessage = require("../models/directMess");
 const GroupMessage = require("../models/groupMess");
-const Notification = require("../models/notification"); // <== NEW
+const Notification = require("../models/notification");
 const User = require("../models/user");
 const Student = require("../models/student");
 const Mentor = require("../models/mentor");
@@ -66,6 +66,7 @@ exports.addGroupMessage = async (req, res) => {
       sender,
       message,
       timestamp: new Date(),
+      readBy: [] // Initialize empty readBy array
     });
 
     await groupMessage.save();
@@ -84,7 +85,22 @@ exports.addGroupMessage = async (req, res) => {
 
     await Notification.insertMany(notifications);
 
-    res.status(201).json(groupMessage);
+    // Format response for frontend
+    const senderInfo = await getUserById(sender);
+    const responseMessage = {
+      id: groupMessage._id,
+      text: groupMessage.message,
+      senderId: groupMessage.sender,
+      senderName: senderInfo ? `${senderInfo.firstName} ${senderInfo.lastName || ''}`.trim() : 'Unknown',
+      senderAvatar: null,
+      timestamp: groupMessage.timestamp,
+      chatId: groupId,
+      type: 'text',
+      readBy: groupMessage.readBy || [],
+      attachments: groupMessage.attachments || []
+    };
+
+    res.status(201).json(responseMessage);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -95,10 +111,28 @@ exports.getGroupMessages = async (req, res) => {
     const groupId = req.params.groupId;
 
     const messages = await GroupMessage.find({ groupId })
-      .populate({ path: "sender", model: "User", select: "firstName lastName email" })
       .sort({ timestamp: 1 });
 
-    res.json(messages);
+    // Format messages for frontend
+    const formattedMessages = [];
+    for (const msg of messages) {
+      const sender = await getUserById(msg.sender);
+      
+      formattedMessages.push({
+        id: msg._id,
+        text: msg.message,
+        senderId: msg.sender,
+        senderName: sender ? `${sender.firstName} ${sender.lastName || ''}`.trim() : 'Unknown',
+        senderAvatar: null,
+        timestamp: msg.timestamp,
+        chatId: groupId,
+        type: 'text',
+        readBy: msg.readBy || [], // Include readBy data
+        attachments: msg.attachments || []
+      });
+    }
+
+    res.json(formattedMessages);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -117,6 +151,8 @@ exports.sendDirectMessage = async (req, res) => {
       receiver,
       message,
       timestamp: new Date(),
+      readBy: [], // Initialize empty readBy array
+      isRead: false
     });
 
     await directMessage.save();
@@ -130,7 +166,22 @@ exports.sendDirectMessage = async (req, res) => {
       relatedModel: "directMessage",
     });
 
-    res.status(201).json(directMessage);
+    // Format response for frontend
+    const senderInfo = await getUserById(sender);
+    const responseMessage = {
+      id: directMessage._id,
+      text: directMessage.message,
+      senderId: directMessage.sender,
+      senderName: senderInfo ? `${senderInfo.firstName} ${senderInfo.lastName || ''}`.trim() : 'Unknown',
+      senderAvatar: null,
+      timestamp: directMessage.timestamp,
+      type: 'text',
+      readBy: directMessage.readBy || [],
+      isRead: directMessage.isRead || false,
+      attachments: directMessage.attachments || []
+    };
+
+    res.status(201).json(responseMessage);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -145,21 +196,34 @@ exports.getDirectMessages = async (req, res) => {
         { sender: user1, receiver: user2 },
         { sender: user2, receiver: user1 },
       ],
-    })
-      .populate({ path: "sender", model: "User", select: "firstName lastName email" })
-      .populate({ path: "receiver", model: "User", select: "firstName lastName email" })
-      .sort({ timestamp: 1 });
+    }).sort({ timestamp: 1 });
 
-    res.json(messages);
+    // Format messages for frontend
+    const formattedMessages = [];
+    for (const msg of messages) {
+      const sender = await getUserById(msg.sender);
+      
+      formattedMessages.push({
+        id: msg._id,
+        text: msg.message,
+        senderId: msg.sender,
+        senderName: sender ? `${sender.firstName} ${sender.lastName || ''}`.trim() : 'Unknown',
+        senderAvatar: null,
+        timestamp: msg.timestamp,
+        type: 'text',
+        readBy: msg.readBy || [], // Include readBy data
+        isRead: msg.isRead || false,
+        attachments: msg.attachments || []
+      });
+    }
+
+    res.json(formattedMessages);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-// Get conversations for frontend (NEW - required by frontend)
-// Update your getConversations function in chatController.js
-
-// Add this SIMPLE version to your chatController.js to test
+// Get conversations for frontend
 exports.getConversations = async (req, res) => {
   try {
     console.log('getConversations called, user:', req.user);
@@ -176,14 +240,14 @@ exports.getConversations = async (req, res) => {
     
     console.log('Current user found:', currentUser.firstName);
     
-    // For now, let's just get ALL direct messages involving this user
+    // Get ALL direct messages involving this user
     const directMessages = await DirectMessage.find({
       $or: [{ sender: userId }, { receiver: userId }]
     }).sort({ timestamp: -1 });
     
     console.log('Found direct messages:', directMessages.length);
     
-    // Create a simple conversations array
+    // Create conversations array
     const conversations = [];
     const processedUsers = new Set();
     
@@ -244,7 +308,8 @@ exports.getConversations = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-// Get messages for frontend format (NEW - adapts your existing data)
+
+// Get messages for frontend format
 exports.getMessagesForChat = async (req, res) => {
   try {
     const chatId = req.params.chatId;
@@ -275,6 +340,8 @@ exports.getMessagesForChat = async (req, res) => {
           chatId: chatId,
           type: 'text',
           status: 'sent',
+          readBy: msg.readBy || [], // Include readBy data
+          isRead: msg.isRead || false, // Include isRead data
           attachments: msg.attachments || []
         });
       }
@@ -297,6 +364,7 @@ exports.getMessagesForChat = async (req, res) => {
           chatId: chatId,
           type: 'text',
           status: 'sent',
+          readBy: msg.readBy || [], // Include readBy data
           attachments: msg.attachments || []
         });
       }
@@ -310,8 +378,7 @@ exports.getMessagesForChat = async (req, res) => {
   }
 };
 
-// Send message for frontend (NEW - adapts your existing methods)
-// Send message for frontend (IMPROVED with better validation)
+// Send message for frontend
 exports.sendMessage = async (req, res) => {
   try {
     const { chatId, text, type = 'text', attachments = [] } = req.body;
@@ -360,12 +427,14 @@ exports.sendMessage = async (req, res) => {
         receiver: receiverId,
         message: text.trim(),
         timestamp: new Date(),
-        attachments: attachments
+        attachments: attachments,
+        readBy: [], // Initialize empty readBy array
+        isRead: false
       });
 
       savedMessage = await directMessage.save();
 
-      // Create notification (your existing logic)
+      // Create notification
       await Notification.create({
         userId: receiverId,
         type: "message",
@@ -393,12 +462,13 @@ exports.sendMessage = async (req, res) => {
         sender: senderId,
         message: text.trim(),
         timestamp: new Date(),
-        attachments: attachments
+        attachments: attachments,
+        readBy: [] // Initialize empty readBy array
       });
 
       savedMessage = await groupMessage.save();
 
-      // Notify group members (your existing logic)
+      // Notify group members
       const recipientIds = group.members.filter((id) => id.toString() !== senderId);
 
       if (recipientIds.length > 0) {
@@ -416,7 +486,7 @@ exports.sendMessage = async (req, res) => {
       console.log('Group message saved:', savedMessage._id);
     }
 
-    // Format response for frontend
+    // Format response for frontend with readBy data
     const responseMessage = {
       id: savedMessage._id,
       text: savedMessage.message,
@@ -427,6 +497,8 @@ exports.sendMessage = async (req, res) => {
       chatId: chatId,
       type: type,
       status: 'sent',
+      readBy: savedMessage.readBy || [], // Include readBy data
+      isRead: savedMessage.isRead || false, // Include isRead data
       attachments: savedMessage.attachments || []
     };
 
@@ -435,5 +507,129 @@ exports.sendMessage = async (req, res) => {
   } catch (error) {
     console.error('Error sending message:', error);
     res.status(500).json({ error: 'Failed to send message', details: error.message });
+  }
+};
+
+// --- Direct Messages (Legacy) ---
+exports.getDirectMessages = async (req, res) => {
+  try {
+    const { user1, user2 } = req.params;
+
+    const messages = await DirectMessage.find({
+      $or: [
+        { sender: user1, receiver: user2 },
+        { sender: user2, receiver: user1 },
+      ],
+    }).sort({ timestamp: 1 });
+
+    // Format messages for frontend
+    const formattedMessages = [];
+    for (const msg of messages) {
+      const sender = await getUserById(msg.sender);
+      
+      formattedMessages.push({
+        id: msg._id,
+        text: msg.message,
+        senderId: msg.sender,
+        senderName: sender ? `${sender.firstName} ${sender.lastName || ''}`.trim() : 'Unknown',
+        senderAvatar: null,
+        timestamp: msg.timestamp,
+        type: 'text',
+        readBy: msg.readBy || [], // Include readBy data
+        isRead: msg.isRead || false,
+        attachments: msg.attachments || []
+      });
+    }
+
+    res.json(formattedMessages);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Mark message as read
+exports.markMessageAsRead = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user.userId;
+
+    // For direct messages
+    const message = await DirectMessage.findById(messageId);
+    if (message) {
+      if (!message.readBy || !message.readBy.some(read => read.userId && read.userId.toString() === userId)) {
+        if (!message.readBy) message.readBy = [];
+        message.readBy.push({ userId, readAt: new Date() });
+        message.isRead = true;
+        await message.save();
+      }
+      return res.json({ success: true });
+    }
+
+    // For group messages
+    const groupMessage = await GroupMessage.findById(messageId);
+    if (groupMessage) {
+      if (!groupMessage.readBy || !groupMessage.readBy.some(read => read.userId && read.userId.toString() === userId)) {
+        if (!groupMessage.readBy) groupMessage.readBy = [];
+        groupMessage.readBy.push({ userId, readAt: new Date() });
+        await groupMessage.save();
+      }
+      return res.json({ success: true });
+    }
+
+    res.status(404).json({ error: 'Message not found' });
+  } catch (error) {
+    console.error('Error marking message as read:', error);
+    res.status(500).json({ error: 'Failed to mark message as read' });
+  }
+};
+
+// Mark all messages in chat as read
+exports.markChatAsRead = async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const { chatType } = req.query;
+    const userId = req.user.userId;
+
+    console.log('📖 Marking chat as read:', { chatId, chatType, userId });
+
+    if (chatType === 'group') {
+      await GroupMessage.updateMany(
+        { 
+          groupId: chatId,
+          'readBy.userId': { $ne: userId },
+          sender: { $ne: userId }
+        },
+        { 
+          $push: { 
+            readBy: { userId, readAt: new Date() } 
+          } 
+        }
+      );
+    } else if (chatId.startsWith('direct_')) {
+      // For direct messages, we need to handle the chat ID format
+      const [_, user1, user2] = chatId.split('_');
+      await DirectMessage.updateMany(
+        { 
+          $or: [
+            { sender: user1, receiver: user2 },
+            { sender: user2, receiver: user1 }
+          ],
+          'readBy.userId': { $ne: userId },
+          sender: { $ne: userId }
+        },
+        { 
+          $push: { 
+            readBy: { userId, readAt: new Date() } 
+          },
+          isRead: true
+        }
+      );
+    }
+
+    console.log('✅ Chat marked as read successfully');
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error marking chat as read:', error);
+    res.status(500).json({ error: 'Failed to mark chat as read' });
   }
 };

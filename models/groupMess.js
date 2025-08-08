@@ -14,7 +14,19 @@ const groupMessageSchema = new mongoose.Schema({
     likes: [{ 
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'user' 
-        }]
+        }],
+
+    readBy: [{
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'user'
+        },
+        
+        readAt: {
+            type: Date,
+            default: Date.now
+            }
+    }]
 
 });
 

@@ -15,6 +15,22 @@ const directMessageSchema = new mongoose.Schema({
     
     timestamp: { type: Date, default: Date.now },
 
+    readBy: [{
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'user'
+        },
+         readAt: {
+            type: Date,
+            default: Date.now
+        }
+    }],
+    
+    isRead: {
+        type: Boolean,
+        default: false
+    },
+    
     like: [{    
         type: mongoose.Schema.Types.ObjectId, 
         ref: 'user' 

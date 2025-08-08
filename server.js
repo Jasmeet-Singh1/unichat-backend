@@ -47,6 +47,8 @@ app.use('/api/userProfile', require('./routes/userProfile'));
 app.use('/api/profile', require('./routes/updateProfile'));
 app.use('/api/search', require('./routes/search'));
 app.use('/api/notifications', authMiddleware, require('./routes/notificationRouter'));
+app.use('/api/groups', authMiddleware, require('./routes/group'));
+
 // Socket.IO implementation
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);

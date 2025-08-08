@@ -17,5 +17,9 @@ router.get("/direct-messages/:user1/:user2", chatController.getDirectMessages);
 router.get("/conversations", chatController.getConversations);
 router.get("/messages/:chatId", chatController.getMessagesForChat);
 router.post("/messages", chatController.sendMessage);
+// Mark single message as read
+router.post('/messages/:messageId/read', chatController.markMessageAsRead);
 
+// Mark all messages in chat as read  
+router.post('/chats/:chatId/read', chatController.markChatAsRead);
 module.exports = router;
