@@ -43,6 +43,8 @@ app.use('/api/chat', authMiddleware, require('./routes/chatRouter')); // Use you
 app.use('/api/getClubs', require('./routes/clubs'));
 app.use('/api/programs', require('./routes/programs'));
 app.use('/api/mentorApproval', require('./routes/accApproval'));
+
+
 app.use('/api/userProfile', require('./routes/userProfile'));
 app.use('/api/profile', require('./routes/updateProfile'));
 app.use('/api/search', require('./routes/search'));

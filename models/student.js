@@ -10,7 +10,7 @@ const studentSchema = new mongoose.Schema({
     {
       club: {
         type: String,
-        ref: 'club',
+        ref: 'studentClub',
         required: true,
         index: true,
       },
