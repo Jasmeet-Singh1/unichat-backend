@@ -1,10 +1,28 @@
 // models/forum.js
 const mongoose = require('mongoose');
 
+const commentSchema = new mongoose.Schema({
+    author: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
+    text: {
+        type: String,
+        required: true,
+        trim: true,
+        maxLength: 500
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    }
+});
+
 const forumSchema = new mongoose.Schema({
     author: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User', // Reference the base User collection, not discriminators
+        ref: 'User',
         required: true
     },
     title: {
@@ -25,8 +43,9 @@ const forumSchema = new mongoose.Schema({
     },
     likes: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'user' // Reference the base User collection
+        ref: 'User'
     }],
+    comments: [commentSchema],
     isActive: {
         type: Boolean,
         default: true

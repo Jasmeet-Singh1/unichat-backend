@@ -37,7 +37,7 @@ const userSockets = new Map();
 // Routes
 const authMiddleware = require('./middleware/auth'); // Your existing auth middleware
 
-
+app.use('/uploads', express.static('uploads'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/chat', authMiddleware, require('./routes/chatRouter')); // Use your existing auth middleware
 app.use('/api/getClubs', require('./routes/clubs'));
