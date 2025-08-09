@@ -51,6 +51,10 @@ app.use('/api/search', require('./routes/search'));
 app.use('/api/notifications', authMiddleware, require('./routes/notificationRouter'));
 app.use('/api/groups', authMiddleware, require('./routes/group'));
 
+//Admin related routes
+app.use('/api/admin', require ('./routes/admin'));
+app.use('/api/adminauth', require('./routes/adminAuth'));
+
 // Socket.IO implementation
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
