@@ -8,17 +8,43 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const Otp = require('../models/OTP');
 const sendOtpEmail = require('../utils/sendOtpEmail');
+const multer = require('multer');
+const path = require('path');
+
+// ✅ Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/'); // Save files to uploads folder
+  },
+  filename: function (req, file, cb) {
+    // Generate unique filename to avoid conflicts
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  fileFilter: function (req, file, cb) {
+    // Accept only certain file types
+    const allowedTypes = /jpeg|jpg|png|pdf|doc|docx/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only PDF, DOC, DOCX, JPG, JPEG, PNG files are allowed'));
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+});
 
 // POST register route - handles ALL roles (Student, Mentor, Alumni)
 router.post('/register', async (req, res) => {
-  const { 
-    firstName, 
-    lastName, 
-    role, 
-    username, 
-    email, 
-    password
-  } = req.body;
+  const { firstName, lastName, role, username, email, password } = req.body;
 
   try {
     console.log('📧 Registration attempt for email:', email, 'Role:', role);
@@ -31,8 +57,8 @@ router.post('/register', async (req, res) => {
     }
 
     // Check if user already exists across all role models
-    const existingUser = await User.findOne({ 
-      $or: [{ email: email.toLowerCase() }, { username }]
+    const existingUser = await User.findOne({
+      $or: [{ email: email.toLowerCase() }, { username }],
     });
 
     if (existingUser) {
@@ -41,11 +67,7 @@ router.post('/register', async (req, res) => {
 
     // Generate and save OTP first
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    await Otp.findOneAndUpdate(
-      { email: email.toLowerCase() }, 
-      { otp, createdAt: new Date() }, 
-      { upsert: true }
-    );
+    await Otp.findOneAndUpdate({ email: email.toLowerCase() }, { otp, createdAt: new Date() }, { upsert: true });
 
     console.log('🛂 OTP generated:', otp);
     console.log('📮 Attempting to send OTP email to:', email);
@@ -58,25 +80,24 @@ router.post('/register', async (req, res) => {
     } catch (emailError) {
       console.error('❌ Email sending failed:', emailError.message);
       console.error('Full email error:', emailError);
-      
+
       // Clean up OTP if email fails
       await Otp.deleteOne({ email: email.toLowerCase() });
-      
-      return res.status(500).json({ 
+
+      return res.status(500).json({
         message: 'Failed to send OTP email. Please try again.',
-        emailError: emailError.message 
+        emailError: emailError.message,
       });
     }
 
     // Store user data temporarily in session/cache or send it back to frontend
     // For now, we'll expect the frontend to send all data again during OTP verification
-    
-    res.status(200).json({ 
+
+    res.status(200).json({
       message: 'OTP sent to email. Please verify to complete registration.',
       email: email.toLowerCase(),
-      role: role
+      role: role,
     });
-
   } catch (err) {
     console.error('REGISTER ERROR:', err);
     res.status(500).json({
@@ -94,14 +115,14 @@ router.post('/verify-otp-only', async (req, res) => {
     console.log('🔍 OTP verification only for:', email, 'with OTP:', otp);
 
     const otpDoc = await Otp.findOne({ email: email.toLowerCase() });
-    
+
     if (!otpDoc) {
       console.log('❌ No OTP found for email:', email);
       return res.status(400).json({ message: 'OTP not found or expired.' });
     }
 
     console.log('📋 Found OTP in DB:', otpDoc.otp);
-    
+
     if (otpDoc.otp !== otp) {
       console.log('❌ OTP mismatch. Expected:', otpDoc.otp, 'Received:', otp);
       return res.status(400).json({ message: 'Invalid OTP.' });
@@ -116,183 +137,251 @@ router.post('/verify-otp-only', async (req, res) => {
     }
 
     // Mark OTP as verified but don't delete it yet
-    await Otp.findOneAndUpdate(
-      { email: email.toLowerCase() }, 
-      { verified: true }
-    );
+    await Otp.findOneAndUpdate({ email: email.toLowerCase() }, { verified: true });
 
     console.log('✅ OTP verified successfully for:', email);
 
-    res.status(200).json({ 
+    res.status(200).json({
       message: 'OTP verified successfully. Continue with registration.',
-      email: email.toLowerCase()
+      email: email.toLowerCase(),
     });
-
   } catch (err) {
     console.error('OTP verification error:', err);
     res.status(500).json({ message: 'OTP verification failed', error: err.message });
   }
 });
 
-router.post('/create-user', async (req, res) => {
-  const { 
-    email,
-    firstName, 
-    lastName, 
-    role, 
-    username, 
-    password,
-    bio,
-    program,
-    programType,
-    coursesEnrolled,
-    expectedGradDate,
-    courseExpertise,
-    availability,
-    proof,
-    overallGPA,
-    gradDate,
-    currentJob,
-    studentClubs
-  } = req.body;
+router.post(
+  '/create-user',
+  upload.fields([
+    { name: 'mentorProof', maxCount: 1 },
+    { name: 'alumniProof', maxCount: 1 },
+  ]),
+  async (req, res) => {
+    const {
+      email,
+      firstName,
+      lastName,
+      role,
+      username,
+      password,
+      bio,
+      program,
+      programType,
+      coursesEnrolled,
+      expectedGradDate,
+      courseExpertise,
+      availability,
+      proof,
+      overallGPA,
+      gradDate,
+      currentJob,
+      studentClubs,
+    } = req.body;
 
-  try {
-    console.log('🏗️ Creating', role, 'account for:', email);
-    
-    // Check if OTP was verified (same for all roles)
-    const otpDoc = await Otp.findOne({ 
-      email: email.toLowerCase(), 
-      verified: true 
-    });
+    try {
+      console.log('🏗️ Creating', role, 'account for:', email);
+      console.log('📁 Files received:', req.files); // Debug log
 
-    if (!otpDoc) {
-      return res.status(400).json({ message: 'Email not verified. Please verify OTP first.' });
-    }
+      // Check if OTP was verified (same for all roles)
+      const otpDoc = await Otp.findOne({
+        email: email.toLowerCase(),
+        verified: true,
+      });
 
-    // Role-specific validation
-    if (role === 'Mentor') {
-      if (!courseExpertise || courseExpertise.length === 0) {
-        return res.status(400).json({ message: 'Course expertise is required for mentors.' });
+      if (!otpDoc) {
+        return res.status(400).json({ message: 'Email not verified. Please verify OTP first.' });
       }
-      
-      for (let expertise of courseExpertise) {
-        if (!expertise.course || !expertise.grade) {
-          return res.status(400).json({ 
-            message: 'Each course expertise must have a course and grade.' 
-          });
+
+      // Role-specific validation
+      if (role === 'Mentor') {
+        if (!courseExpertise || courseExpertise.length === 0) {
+          return res.status(400).json({ message: 'Course expertise is required for mentors.' });
+        }
+
+        // Parse courseExpertise if it's a string (from FormData)
+        let parsedCourseExpertise = courseExpertise;
+        if (typeof courseExpertise === 'string') {
+          try {
+            parsedCourseExpertise = JSON.parse(courseExpertise);
+          } catch (e) {
+            console.error('Error parsing courseExpertise:', e);
+          }
+        }
+
+        for (let expertise of parsedCourseExpertise) {
+          if (!expertise.course || !expertise.grade) {
+            return res.status(400).json({
+              message: 'Each course expertise must have a course and grade.',
+            });
+          }
         }
       }
-    }
 
-    // Handle proof field (same logic as before)
-    let processedProof = [];
-    if (proof && Array.isArray(proof)) {
-      processedProof = proof.filter(item => 
-        item && typeof item === 'string' && item.trim() !== '' && item !== '{}'
-      );
-    }
-    if (processedProof.length === 0 && role !== 'Student') {
-      processedProof = ['pending-file-upload'];
-    }
-
-    let newUser;
-
-    // Create user based on role
-    if (role === 'Student') {
-      newUser = new Student({
-        firstName,
-        lastName,
-        username,
-        email: email.toLowerCase(),
-        password,
-        role,
-        bio,
-        program,
-        programType,
-        coursesEnrolled,
-        expectedGradDate,
-        studentClubs,
-        isVerified: true,
-      });
-    } else if (role === 'Mentor') {
-      newUser = new Mentor({
-        firstName,
-        lastName,
-        username,
-        email: email.toLowerCase(),
-        password,
-        role,
-        bio,
-        program,
-        programType,
-        coursesEnrolled,
-        expectedGradDate,
-        courseExpertise,
-        availability,
-        proof: processedProof,
-        overallGPA,
-        isVerified: true,
-        isPendingApproval: true,
-        isApproved: false,
-      });
-    } else if (role === 'Alumni') {
-      newUser = new Alumni({
-        firstName,
-        lastName,
-        username,
-        email: email.toLowerCase(),
-        password,
-        role,
-        bio,
-        program,
-        programType,
-        coursesEnrolled,
-        gradDate,
-        currentJob,
-        proof: processedProof,
-        isVerified: true,
-        isApproved: false,
-      });
-    } else {
-      return res.status(400).json({ message: 'Invalid role provided.' });
-    }
-
-    await newUser.save();
-    console.log('✅ User created successfully:', newUser.email, 'Role:', newUser.role);
-
-    // Clean up OTP
-    await Otp.deleteOne({ email: email.toLowerCase() });
-    console.log('🗑️ OTP deleted from database');
-
-    // Role-specific response
-    let message;
-    if (role === 'Student') {
-      message = 'Student registration successful. You can now login.';
-    } else if (role === 'Mentor') {
-      message = 'Mentor registration successful. Please wait for admin approval.';
-    } else {
-      message = 'Alumni registration successful. Please wait for admin approval.';
-    }
-
-    res.status(201).json({ 
-      message,
-      user: {
-        id: newUser._id,
-        email: newUser.email,
-        role: newUser.role,
-        isApproved: newUser.isApproved !== undefined ? newUser.isApproved : true
+      // ✅ Handle uploaded files
+      let processedProof = [];
+      if (req.files) {
+        if (req.files.mentorProof && req.files.mentorProof[0]) {
+          processedProof.push(req.files.mentorProof[0].filename);
+          console.log('📄 Mentor proof file saved:', req.files.mentorProof[0].filename);
+        }
+        if (req.files.alumniProof && req.files.alumniProof[0]) {
+          processedProof.push(req.files.alumniProof[0].filename);
+          console.log('📄 Alumni proof file saved:', req.files.alumniProof[0].filename);
+        }
       }
-    });
 
-  } catch (err) {
-    console.error('Account creation error:', err);
-    res.status(500).json({ 
-      message: 'Account creation failed', 
-      error: err.message,
-      details: err.errors ? Object.keys(err.errors) : 'Unknown error'
-    });
+      // If no files uploaded but role requires proof, add placeholder
+      if (processedProof.length === 0 && role !== 'Student') {
+        processedProof = ['pending-file-upload'];
+      }
+
+      let newUser;
+
+      // Parse JSON strings from FormData if needed
+      let parsedCoursesEnrolled = coursesEnrolled;
+      let parsedAvailability = availability;
+      let parsedStudentClubs = studentClubs;
+      let parsedCurrentJob = currentJob;
+      let parsedCourseExpertise = courseExpertise;
+
+      if (typeof coursesEnrolled === 'string') {
+        try {
+          parsedCoursesEnrolled = JSON.parse(coursesEnrolled);
+        } catch (e) {
+          console.error('Error parsing coursesEnrolled:', e);
+        }
+      }
+      if (typeof availability === 'string') {
+        try {
+          parsedAvailability = JSON.parse(availability);
+        } catch (e) {
+          console.error('Error parsing availability:', e);
+        }
+      }
+      if (typeof studentClubs === 'string') {
+        try {
+          parsedStudentClubs = JSON.parse(studentClubs);
+        } catch (e) {
+          console.error('Error parsing studentClubs:', e);
+        }
+      }
+      if (typeof currentJob === 'string') {
+        try {
+          parsedCurrentJob = JSON.parse(currentJob);
+        } catch (e) {
+          console.error('Error parsing currentJob:', e);
+        }
+      }
+      if (typeof courseExpertise === 'string') {
+        try {
+          parsedCourseExpertise = JSON.parse(courseExpertise);
+        } catch (e) {
+          console.error('Error parsing courseExpertise:', e);
+        }
+      }
+
+      // Create user based on role
+      if (role === 'Student') {
+        newUser = new Student({
+          firstName,
+          lastName,
+          username,
+          email: email.toLowerCase(),
+          password,
+          role,
+          bio,
+          program,
+          programType,
+          coursesEnrolled: parsedCoursesEnrolled,
+          expectedGradDate,
+          studentClubs: parsedStudentClubs,
+          isVerified: true,
+        });
+      } else if (role === 'Mentor') {
+        let validGPA = null;
+        if (overallGPA && overallGPA !== 'undefined' && overallGPA !== '' && !isNaN(overallGPA)) {
+          validGPA = parseFloat(overallGPA);
+        }
+        newUser = new Mentor({
+          firstName,
+          lastName,
+          username,
+          email: email.toLowerCase(),
+          password,
+          role,
+          bio,
+          program,
+          programType,
+          coursesEnrolled: parsedCoursesEnrolled,
+          expectedGradDate,
+          courseExpertise: parsedCourseExpertise,
+          availability: parsedAvailability,
+          proof: processedProof,
+          overallGPA: validGPA,
+          isVerified: true,
+          isPendingApproval: true,
+          isApproved: false,
+        });
+      } else if (role === 'Alumni') {
+        newUser = new Alumni({
+          firstName,
+          lastName,
+          username,
+          email: email.toLowerCase(),
+          password,
+          role,
+          bio,
+          program,
+          programType,
+          coursesEnrolled: parsedCoursesEnrolled,
+          gradDate,
+          currentJob: parsedCurrentJob,
+          proof: processedProof,
+          isVerified: true,
+          isApproved: false,
+        });
+      } else {
+        return res.status(400).json({ message: 'Invalid role provided.' });
+      }
+
+      await newUser.save();
+      console.log('✅ User created successfully:', newUser.email, 'Role:', newUser.role);
+      console.log('📁 Proof files saved:', processedProof);
+
+      // Clean up OTP
+      await Otp.deleteOne({ email: email.toLowerCase() });
+      console.log('🗑️ OTP deleted from database');
+
+      // Role-specific response
+      let message;
+      if (role === 'Student') {
+        message = 'Student registration successful. You can now login.';
+      } else if (role === 'Mentor') {
+        message = 'Mentor registration successful. Please wait for admin approval.';
+      } else {
+        message = 'Alumni registration successful. Please wait for admin approval.';
+      }
+
+      res.status(201).json({
+        message,
+        user: {
+          id: newUser._id,
+          email: newUser.email,
+          role: newUser.role,
+          isApproved: newUser.isApproved !== undefined ? newUser.isApproved : true,
+        },
+      });
+    } catch (err) {
+      console.error('Account creation error:', err);
+      res.status(500).json({
+        message: 'Account creation failed',
+        error: err.message,
+        details: err.errors ? Object.keys(err.errors) : 'Unknown error',
+      });
+    }
   }
-});
+);
 
 // Login route (unchanged)
 router.post('/login', async (req, res) => {
@@ -300,7 +389,7 @@ router.post('/login', async (req, res) => {
 
   try {
     // Try finding the user across all role collections
-    let user = 
+    let user =
       (await Student.findOne({ email: email.toLowerCase() })) ||
       (await Mentor.findOne({ email: email.toLowerCase() })) ||
       (await Alumni.findOne({ email: email.toLowerCase() }));
@@ -349,4 +438,5 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ message: 'Login failed' });
   }
 });
+
 module.exports = router;
