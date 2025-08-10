@@ -36,11 +36,20 @@ connectDB();
 const onlineUsers = new Map();
 const userSockets = new Map();
 
+// 🆕 Make io available globally for notifications
+app.set('socketio', io);
+
 // Routes
 const authMiddleware = require('./middleware/auth'); // Your existing auth middleware
 
 app.use('/uploads', express.static('uploads'));
-app.use('/api/users', require('./routes/users'));
+
+// 🆕 Pass io instance to routes that need real-time notifications
+app.use('/api/users', (req, res, next) => {
+    req.io = io;
+    next();
+}, require('./routes/users'));
+
 app.use('/api/chat', authMiddleware, require('./routes/chatRouter')); // Use your existing auth middleware
 app.use('/api/getClubs', require('./routes/clubs'));
 app.use('/api/programs', require('./routes/programs'));
@@ -71,6 +80,10 @@ io.on('connection', (socket) => {
             socket.userName = userName;
             onlineUsers.set(userId, socket.id);
             userSockets.set(socket.id, userId);
+            
+            // Join user to their personal notification room
+            socket.join(`user_${userId}`);
+            console.log(`User ${userId} joined their notification room`);
             
             // Broadcast user online
             socket.broadcast.emit('user-online', userId);
@@ -119,11 +132,22 @@ io.on('connection', (socket) => {
         });
     });
 
+    // 🆕 Handle notification-specific events
+    socket.on('mark-notification-read', async (notificationId) => {
+        try {
+            // You can add logic here to mark notification as read in database
+            console.log(`Marking notification ${notificationId} as read for user ${socket.userId}`);
+        } catch (error) {
+            console.error('Error marking notification as read:', error);
+        }
+    });
+
     // Disconnect
     socket.on('disconnect', () => {
         if (socket.userId) {
             onlineUsers.delete(socket.userId);
             userSockets.delete(socket.id);
+            socket.leave(`user_${socket.userId}`);
             socket.broadcast.emit('user-offline', socket.userId);
             io.emit('online-users', Array.from(onlineUsers.keys()));
         }
@@ -131,13 +155,23 @@ io.on('connection', (socket) => {
     });
 });
 
+// 🆕 Enhanced notification emission function
+global.emitNotification = (userId, notification) => {
+    io.to(`user_${userId}`).emit('new-notification', {
+        userId: userId.toString(),
+        notification: notification
+    });
+    
+    console.log(`📱 Notification emitted to user ${userId}:`, notification.title);
+};
+
 // Root route
 app.get('/', (req, res) => res.json({ msg: 'Welcome to UniChat API...' }));
 
 // Start server with Socket.IO
 server.listen(PORT, () => {
     console.log(`Server started on port ${PORT}`);
-    console.log(`Socket.IO enabled for real-time chat`);
+    console.log(`Socket.IO enabled for real-time chat and notifications`);
 });
 
 require('./cronJob/reminderJob');

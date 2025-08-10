@@ -8,8 +8,11 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const Otp = require('../models/OTP');
 const sendOtpEmail = require('../utils/sendOtpEmail');
-const multer =require ('multer');
-const path = require ('path');
+const multer = require('multer');
+const path = require('path');
+
+// 🆕 Import the notification function
+const { notifyCoursePeersOnNewSignup } = require('../utils/notificationHelpers');
 
 // ✅ Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -292,11 +295,10 @@ router.post('/create-user', upload.fields([
         isVerified: true,
       });
     } else if (role === 'Mentor') {
-  
-        let validGPA = null;
-        if (overallGPA && overallGPA !== 'undefined' && overallGPA !== '' && !isNaN(overallGPA)) {
-          validGPA = parseFloat(overallGPA);
-        }
+      let validGPA = null;
+      if (overallGPA && overallGPA !== 'undefined' && overallGPA !== '' && !isNaN(overallGPA)) {
+        validGPA = parseFloat(overallGPA);
+      }
       newUser = new Mentor({
         firstName,
         lastName,
@@ -339,9 +341,23 @@ router.post('/create-user', upload.fields([
       return res.status(400).json({ message: 'Invalid role provided.' });
     }
 
+    // Save the new user
     await newUser.save();
     console.log('✅ User created successfully:', newUser.email, 'Role:', newUser.role);
     console.log('📁 Proof files saved:', processedProof);
+
+    // 🆕 NOTIFY COURSE PEERS - Only if user has enrolled courses
+    if (newUser.coursesEnrolled && newUser.coursesEnrolled.length > 0) {
+      console.log('🔔 Notifying course peers about new user...');
+      try {
+        // Pass the io instance for real-time notifications
+        await notifyCoursePeersOnNewSignup(newUser, req.io);
+        console.log('✅ Course peer notifications sent successfully');
+      } catch (notificationError) {
+        console.error('❌ Failed to send course peer notifications:', notificationError);
+        // Don't fail registration if notification fails
+      }
+    }
 
     // Clean up OTP
     await Otp.deleteOne({ email: email.toLowerCase() });
