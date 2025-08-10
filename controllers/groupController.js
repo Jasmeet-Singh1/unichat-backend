@@ -1,15 +1,33 @@
 const Group = require('../models/group');
 const User = require('../models/user');
-const GroupMessage = require('../models/groupMess'); // Your existing model
+const Student = require('../models/student');
+const Mentor = require('../models/mentor');
+const Alumni = require('../models/alumni');
+const GroupMessage = require('../models/groupMess');
+
+// Helper function to get user from any role collection (same as your login logic)
+const getUserById = async (userId) => {
+  let user = 
+    (await Student.findById(userId)) ||
+    (await Mentor.findById(userId)) ||
+    (await Alumni.findById(userId));
+  return user;
+};
 
 // Create a new group
 exports.createGroup = async (req, res) => {
   try {
     const { name, description, isPrivate, memberIds } = req.body;
-    const createdBy = req.user.userId;
+    const createdBy = req.user.userId; // ✅ Using userId from JWT
 
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'Group name is required' });
+    }
+
+    // Verify creator exists
+    const creator = await getUserById(createdBy);
+    if (!creator) {
+      return res.status(404).json({ error: 'Creator not found' });
     }
 
     // Start with creator as member
@@ -32,11 +50,34 @@ exports.createGroup = async (req, res) => {
 
     const savedGroup = await newGroup.save();
     
-    const populatedGroup = await Group.findById(savedGroup._id)
-      .populate('createdBy', 'firstName lastName email')
-      .populate('members', 'firstName lastName email');
+    // Manually populate members since they're in different collections
+    const populatedMembers = [];
+    for (const memberId of savedGroup.members) {
+      const member = await getUserById(memberId);
+      if (member) {
+        populatedMembers.push({
+          _id: member._id,
+          firstName: member.firstName,
+          lastName: member.lastName,
+          email: member.email
+        });
+      }
+    }
 
-    res.status(201).json(populatedGroup);
+    const creatorInfo = await getUserById(savedGroup.createdBy);
+
+    const responseGroup = {
+      ...savedGroup.toObject(),
+      createdBy: {
+        _id: creatorInfo._id,
+        firstName: creatorInfo.firstName,
+        lastName: creatorInfo.lastName,
+        email: creatorInfo.email
+      },
+      members: populatedMembers
+    };
+
+    res.status(201).json(responseGroup);
   } catch (error) {
     console.error('Error creating group:', error);
     res.status(500).json({ error: 'Failed to create group' });
@@ -46,40 +87,64 @@ exports.createGroup = async (req, res) => {
 // Get all groups for a user (formatted like conversations)
 exports.getUserGroups = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user.userId; // ✅ Using userId from JWT
 
     const groups = await Group.find({
       members: userId
-    })
-    .populate('createdBy', 'firstName lastName email')
-    .populate('members', 'firstName lastName email')
-    .sort({ createdAt: -1 });
+    }).sort({ createdAt: -1 });
 
     // Format groups to match conversation structure
     const formattedGroups = await Promise.all(groups.map(async (group) => {
+      // Get creator info
+      const creator = await getUserById(group.createdBy);
+      
+      // Get members info
+      const membersInfo = [];
+      for (const memberId of group.members) {
+        const member = await getUserById(memberId);
+        if (member) {
+          membersInfo.push({
+            _id: member._id,
+            firstName: member.firstName,
+            lastName: member.lastName,
+            email: member.email
+          });
+        }
+      }
+
       // Get last message for the group
       const lastMessage = await GroupMessage.findOne({ groupId: group._id })
-        .populate('sender', 'firstName lastName')
         .sort({ timestamp: -1 });
+
+      let lastMessageInfo = null;
+      if (lastMessage) {
+        const sender = await getUserById(lastMessage.sender);
+        lastMessageInfo = {
+          id: lastMessage._id,
+          text: lastMessage.message,
+          senderId: lastMessage.sender,
+          senderName: sender ? `${sender.firstName} ${sender.lastName || ''}`.trim() : 'Unknown',
+          timestamp: lastMessage.timestamp
+        };
+      }
 
       return {
         id: group._id,
         name: group.name,
         type: 'group',
         description: group.description,
-        avatar: null, // You can add group avatars later
-        members: group.members,
-        createdBy: group.createdBy,
-        isPrivate: group.isPrivate,
-        lastMessage: lastMessage ? {
-          id: lastMessage._id,
-          text: lastMessage.message,
-          senderId: lastMessage.sender._id,
-          senderName: `${lastMessage.sender.firstName} ${lastMessage.sender.lastName}`,
-          timestamp: lastMessage.timestamp
+        avatar: null,
+        members: membersInfo,
+        createdBy: creator ? {
+          _id: creator._id,
+          firstName: creator.firstName,
+          lastName: creator.lastName,
+          email: creator.email
         } : null,
+        isPrivate: group.isPrivate,
+        lastMessage: lastMessageInfo,
         updatedAt: lastMessage ? lastMessage.timestamp : group.createdAt,
-        unreadCount: 0, // You can implement unread count logic later
+        unreadCount: 0,
         pinned: false,
         muted: false,
         archived: false
@@ -97,30 +162,53 @@ exports.getUserGroups = async (req, res) => {
 exports.getGroupMessages = async (req, res) => {
   try {
     const { groupId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId; // ✅ Using userId from JWT
+
+    console.log('Getting group messages:', { groupId, userId });
 
     // Check if user is a member of the group
     const group = await Group.findById(groupId);
-    if (!group || !group.members.includes(userId)) {
+    if (!group) {
+      console.log('Group not found:', groupId);
+      return res.status(404).json({ error: 'Group not found' });
+    }
+
+    // Convert userId to string for comparison
+    const userIdString = userId.toString();
+    const isMember = group.members.some(memberId => memberId.toString() === userIdString);
+    
+    console.log('Group membership check:', {
+      userId: userIdString,
+      groupMembers: group.members.map(m => m.toString()),
+      isMember
+    });
+
+    if (!isMember) {
+      console.log('Access denied - user not in group');
       return res.status(403).json({ error: 'Access denied' });
     }
 
     const messages = await GroupMessage.find({ groupId })
-      .populate('sender', 'firstName lastName email')
       .sort({ timestamp: 1 });
 
     // Format messages to match your chat message structure
-    const formattedMessages = messages.map(msg => ({
-      id: msg._id,
-      chatId: groupId,
-      text: msg.message,
-      senderId: msg.sender._id,
-      senderName: `${msg.sender.firstName} ${msg.sender.lastName}`,
-      timestamp: msg.timestamp,
-      type: 'text',
-      likes: msg.likes || []
-    }));
+    const formattedMessages = [];
+    for (const msg of messages) {
+      const sender = await getUserById(msg.sender);
+      
+      formattedMessages.push({
+        id: msg._id,
+        chatId: groupId,
+        text: msg.message,
+        senderId: msg.sender,
+        senderName: sender ? `${sender.firstName} ${sender.lastName || ''}`.trim() : 'Unknown',
+        timestamp: msg.timestamp,
+        type: 'text',
+        likes: msg.likes || []
+      });
+    }
 
+    console.log('Returning messages:', formattedMessages.length);
     res.json(formattedMessages);
   } catch (error) {
     console.error('Error fetching group messages:', error);
@@ -133,36 +221,64 @@ exports.sendGroupMessage = async (req, res) => {
   try {
     const { groupId } = req.params;
     const { text } = req.body;
-    const senderId = req.user.id;
+    const senderId = req.user.userId; // ✅ Using userId from JWT
+
+    console.log('Sending group message:', { groupId, senderId, text: text?.substring(0, 50) });
+
+    // Validate input
+    if (!text || text.trim() === '') {
+      return res.status(400).json({ error: 'Message text is required' });
+    }
 
     // Check if user is a member of the group
     const group = await Group.findById(groupId);
-    if (!group || !group.members.includes(senderId)) {
+    if (!group) {
+      console.log('Group not found:', groupId);
+      return res.status(404).json({ error: 'Group not found' });
+    }
+
+    // Convert senderId to string for comparison
+    const senderIdString = senderId.toString();
+    const isMember = group.members.some(memberId => memberId.toString() === senderIdString);
+    
+    console.log('Sender membership check:', {
+      senderId: senderIdString,
+      groupMembers: group.members.map(m => m.toString()),
+      isMember
+    });
+
+    if (!isMember) {
+      console.log('Access denied - sender not in group');
       return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Verify sender exists
+    const sender = await getUserById(senderId);
+    if (!sender) {
+      return res.status(404).json({ error: 'Sender not found' });
     }
 
     const newMessage = new GroupMessage({
       groupId: groupId,
       sender: senderId,
-      message: text,
+      message: text.trim(),
       timestamp: new Date()
     });
 
     const savedMessage = await newMessage.save();
     
-    const populatedMessage = await GroupMessage.findById(savedMessage._id)
-      .populate('sender', 'firstName lastName email');
+    console.log('Message saved:', savedMessage._id);
 
     // Format response to match your chat message structure
     const formattedMessage = {
-      id: populatedMessage._id,
+      id: savedMessage._id,
       chatId: groupId,
-      text: populatedMessage.message,
-      senderId: populatedMessage.sender._id,
-      senderName: `${populatedMessage.sender.firstName} ${populatedMessage.sender.lastName}`,
-      timestamp: populatedMessage.timestamp,
+      text: savedMessage.message,
+      senderId: savedMessage.sender,
+      senderName: `${sender.firstName} ${sender.lastName || ''}`.trim(),
+      timestamp: savedMessage.timestamp,
       type: 'text',
-      likes: populatedMessage.likes || []
+      likes: savedMessage.likes || []
     };
 
     res.status(201).json(formattedMessage);
@@ -176,21 +292,50 @@ exports.sendGroupMessage = async (req, res) => {
 exports.getGroupDetails = async (req, res) => {
   try {
     const { groupId } = req.params;
-    const userId = req.user.userId;
+    const userId = req.user.userId; // ✅ Using userId from JWT
 
-    const group = await Group.findById(groupId)
-      .populate('createdBy', 'firstName lastName email')
-      .populate('members', 'firstName lastName email');
+    const group = await Group.findById(groupId);
 
     if (!group) {
       return res.status(404).json({ error: 'Group not found' });
     }
 
-    if (!group.members.some(member => member._id.toString() === userId)) {
+    // Check if user is a member
+    const userIdString = userId.toString();
+    const isMember = group.members.some(memberId => memberId.toString() === userIdString);
+
+    if (!isMember) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    res.json(group);
+    // Manually populate creator and members
+    const creator = await getUserById(group.createdBy);
+    const membersInfo = [];
+    
+    for (const memberId of group.members) {
+      const member = await getUserById(memberId);
+      if (member) {
+        membersInfo.push({
+          _id: member._id,
+          firstName: member.firstName,
+          lastName: member.lastName,
+          email: member.email
+        });
+      }
+    }
+
+    const responseGroup = {
+      ...group.toObject(),
+      createdBy: creator ? {
+        _id: creator._id,
+        firstName: creator.firstName,
+        lastName: creator.lastName,
+        email: creator.email
+      } : null,
+      members: membersInfo
+    };
+
+    res.json(responseGroup);
   } catch (error) {
     console.error('Error fetching group details:', error);
     res.status(500).json({ error: 'Failed to fetch group details' });
@@ -201,33 +346,103 @@ exports.getGroupDetails = async (req, res) => {
 exports.addMember = async (req, res) => {
   try {
     const { groupId } = req.params;
-    const { userId } = req.body;
+    const { userId, userIds } = req.body; // Support both single user and multiple users
     const requesterId = req.user.userId;
+
+    console.log('Add member request:', { groupId, userId, userIds, requesterId });
 
     const group = await Group.findById(groupId);
     if (!group) {
       return res.status(404).json({ error: 'Group not found' });
     }
 
-    if (group.createdBy.toString() !== requesterId) {
+    // Check if requester is group creator or admin (you can modify this logic)
+    if (group.createdBy.toString() !== requesterId.toString()) {
       return res.status(403).json({ error: 'Only group creator can add members' });
     }
 
-    if (group.members.includes(userId)) {
-      return res.status(400).json({ error: 'User is already a member' });
+    // Handle both single user and multiple users
+    let usersToAdd = [];
+    if (userId) {
+      usersToAdd = [userId];
+    } else if (userIds && Array.isArray(userIds)) {
+      usersToAdd = userIds;
+    } else {
+      return res.status(400).json({ error: 'userId or userIds required' });
     }
 
-    group.members.push(userId);
+    console.log('Users to add:', usersToAdd);
+
+    let addedUsers = [];
+    let errors = [];
+
+    for (const userIdToAdd of usersToAdd) {
+      try {
+        // Check if user exists
+        const userToAdd = await getUserById(userIdToAdd);
+        if (!userToAdd) {
+          errors.push(`User ${userIdToAdd} not found`);
+          continue;
+        }
+
+        // Check if already a member
+        if (group.members.some(memberId => memberId.toString() === userIdToAdd.toString())) {
+          errors.push(`${userToAdd.firstName} ${userToAdd.lastName} is already a member`);
+          continue;
+        }
+
+        // Add to group
+        group.members.push(userIdToAdd);
+        addedUsers.push({
+          _id: userToAdd._id,
+          firstName: userToAdd.firstName,
+          lastName: userToAdd.lastName,
+          email: userToAdd.email
+        });
+      } catch (err) {
+        errors.push(`Error adding user ${userIdToAdd}: ${err.message}`);
+      }
+    }
+
+    // Save the group with new members
     await group.save();
 
-    const updatedGroup = await Group.findById(groupId)
-      .populate('createdBy', 'firstName lastName email')
-      .populate('members', 'firstName lastName email');
+    // Manually populate updated group
+    const creator = await getUserById(group.createdBy);
+    const membersInfo = [];
+    
+    for (const memberId of group.members) {
+      const member = await getUserById(memberId);
+      if (member) {
+        membersInfo.push({
+          _id: member._id,
+          firstName: member.firstName,
+          lastName: member.lastName,
+          email: member.email
+        });
+      }
+    }
 
-    res.json(updatedGroup);
+    const responseGroup = {
+      ...group.toObject(),
+      createdBy: creator ? {
+        _id: creator._id,
+        firstName: creator.firstName,
+        lastName: creator.lastName,
+        email: creator.email
+      } : null,
+      members: membersInfo
+    };
+
+    res.json({
+      group: responseGroup,
+      addedUsers,
+      errors: errors.length > 0 ? errors : undefined,
+      message: `Successfully added ${addedUsers.length} member(s)`
+    });
   } catch (error) {
     console.error('Error adding member:', error);
-    res.status(500).json({ error: 'Failed to add member' });
+    res.status(500).json({ error: 'Failed to add member', details: error.message });
   }
 };
 
@@ -235,7 +450,7 @@ exports.addMember = async (req, res) => {
 exports.removeMember = async (req, res) => {
   try {
     const { groupId, userId } = req.params;
-    const requesterId = req.user.id;
+    const requesterId = req.user.userId; // ✅ Using userId from JWT
 
     const group = await Group.findById(groupId);
     if (!group) {
@@ -243,7 +458,7 @@ exports.removeMember = async (req, res) => {
     }
 
     // Only group creator or the member themselves can remove
-    if (group.createdBy.toString() !== requesterId && userId !== requesterId) {
+    if (group.createdBy.toString() !== requesterId.toString() && userId !== requesterId.toString()) {
       return res.status(403).json({ error: 'Permission denied' });
     }
 
@@ -255,11 +470,34 @@ exports.removeMember = async (req, res) => {
     group.members = group.members.filter(member => member.toString() !== userId);
     await group.save();
 
-    const updatedGroup = await Group.findById(groupId)
-      .populate('createdBy', 'firstName lastName email')
-      .populate('members', 'firstName lastName email');
+    // Manually populate updated group
+    const creator = await getUserById(group.createdBy);
+    const membersInfo = [];
+    
+    for (const memberId of group.members) {
+      const member = await getUserById(memberId);
+      if (member) {
+        membersInfo.push({
+          _id: member._id,
+          firstName: member.firstName,
+          lastName: member.lastName,
+          email: member.email
+        });
+      }
+    }
 
-    res.json(updatedGroup);
+    const responseGroup = {
+      ...group.toObject(),
+      createdBy: creator ? {
+        _id: creator._id,
+        firstName: creator.firstName,
+        lastName: creator.lastName,
+        email: creator.email
+      } : null,
+      members: membersInfo
+    };
+
+    res.json(responseGroup);
   } catch (error) {
     console.error('Error removing member:', error);
     res.status(500).json({ error: 'Failed to remove member' });
@@ -275,17 +513,37 @@ exports.searchUsers = async (req, res) => {
       return res.json([]);
     }
 
-    const users = await User.find({
+    // Search across all role collections
+    const searchRegex = { $regex: query, $options: 'i' };
+    const searchCriteria = {
       $or: [
-        { firstName: { $regex: query, $options: 'i' } },
-        { lastName: { $regex: query, $options: 'i' } },
-        { email: { $regex: query, $options: 'i' } }
+        { firstName: searchRegex },
+        { lastName: searchRegex },
+        { email: searchRegex }
       ]
-    })
-    .select('firstName lastName email')
-    .limit(10);
+    };
 
-    res.json(users);
+    const students = await Student.find(searchCriteria)
+      .select('firstName lastName email')
+      .limit(5);
+
+    const mentors = await Mentor.find(searchCriteria)
+      .select('firstName lastName email')
+      .limit(5);
+
+    const alumni = await Alumni.find(searchCriteria)
+      .select('firstName lastName email')
+      .limit(5);
+
+    // Combine results
+    const allUsers = [...students, ...mentors, ...alumni];
+    
+    // Remove duplicates by email and limit total results
+    const uniqueUsers = allUsers.filter((user, index, self) => 
+      index === self.findIndex(u => u.email === user.email)
+    ).slice(0, 10);
+
+    res.json(uniqueUsers);
   } catch (error) {
     console.error('Error searching users:', error);
     res.status(500).json({ error: 'Search failed' });
@@ -296,7 +554,7 @@ exports.searchUsers = async (req, res) => {
 exports.leaveGroup = async (req, res) => {
   try {
     const { groupId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId; // ✅ Using userId from JWT
 
     const group = await Group.findById(groupId);
     if (!group) {
@@ -304,16 +562,124 @@ exports.leaveGroup = async (req, res) => {
     }
 
     // Group creator cannot leave (they need to transfer ownership or delete group)
-    if (group.createdBy.toString() === userId) {
+    if (group.createdBy.toString() === userId.toString()) {
       return res.status(400).json({ error: 'Group creator cannot leave. Transfer ownership or delete the group.' });
     }
 
-    group.members = group.members.filter(member => member.toString() !== userId);
+    group.members = group.members.filter(member => member.toString() !== userId.toString());
     await group.save();
 
     res.json({ message: 'Left group successfully' });
   } catch (error) {
     console.error('Error leaving group:', error);
     res.status(500).json({ error: 'Failed to leave group' });
+  }
+};
+
+// Edit group details
+exports.editGroup = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { name, description, isPrivate } = req.body;
+    const requesterId = req.user.userId;
+
+    console.log('Edit group request:', { groupId, name, description, isPrivate, requesterId });
+
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
+
+    // Check if requester is group creator
+    if (group.createdBy.toString() !== requesterId.toString()) {
+      return res.status(403).json({ error: 'Only group creator can edit group details' });
+    }
+
+    // Validate name if provided
+    if (name !== undefined) {
+      if (!name || !name.trim()) {
+        return res.status(400).json({ error: 'Group name cannot be empty' });
+      }
+      group.name = name.trim();
+    }
+
+    // Update description if provided
+    if (description !== undefined) {
+      group.description = description || '';
+    }
+
+    // Update privacy setting if provided
+    if (isPrivate !== undefined) {
+      group.isPrivate = Boolean(isPrivate);
+    }
+
+    // Save the updated group
+    await group.save();
+
+    // Manually populate updated group
+    const creator = await getUserById(group.createdBy);
+    const membersInfo = [];
+    
+    for (const memberId of group.members) {
+      const member = await getUserById(memberId);
+      if (member) {
+        membersInfo.push({
+          _id: member._id,
+          firstName: member.firstName,
+          lastName: member.lastName,
+          email: member.email
+        });
+      }
+    }
+
+    const responseGroup = {
+      ...group.toObject(),
+      createdBy: creator ? {
+        _id: creator._id,
+        firstName: creator.firstName,
+        lastName: creator.lastName,
+        email: creator.email
+      } : null,
+      members: membersInfo
+    };
+
+    res.json({
+      group: responseGroup,
+      message: 'Group updated successfully'
+    });
+  } catch (error) {
+    console.error('Error editing group:', error);
+    res.status(500).json({ error: 'Failed to edit group', details: error.message });
+  }
+};
+
+// Delete group
+exports.deleteGroup = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const requesterId = req.user.userId;
+
+    console.log('Delete group request:', { groupId, requesterId });
+
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
+
+    // Check if requester is group creator
+    if (group.createdBy.toString() !== requesterId.toString()) {
+      return res.status(403).json({ error: 'Only group creator can delete the group' });
+    }
+
+    // Delete all group messages
+    await GroupMessage.deleteMany({ groupId: groupId });
+
+    // Delete the group
+    await Group.findByIdAndDelete(groupId);
+
+    res.json({ message: 'Group deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting group:', error);
+    res.status(500).json({ error: 'Failed to delete group', details: error.message });
   }
 };

@@ -14,6 +14,12 @@ router.get('/search/users', groupController.searchUsers);
 // Get specific group details
 router.get('/:groupId', groupController.getGroupDetails);
 
+// Edit group details
+router.put('/:groupId', groupController.editGroup);
+
+// Delete group
+router.delete('/:groupId', groupController.deleteGroup);
+
 // Get group messages
 router.get('/:groupId/messages', groupController.getGroupMessages);
 
