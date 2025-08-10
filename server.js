@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const http = require('http');
 const socketIo = require('socket.io');
 const connectDB = require('./config/db');
@@ -7,6 +8,7 @@ const cors = require('cors');
 const { authenticateToken } = require('./middleware/auth');
 
 const app = express();
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const server = http.createServer(app);
 const io = socketIo(server, {
     cors: {

@@ -8,6 +8,39 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const Otp = require('../models/OTP');
 const sendOtpEmail = require('../utils/sendOtpEmail');
+const multer =require ('multer');
+const path = require ('path');
+
+// ✅ Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/') // Save files to uploads folder
+  },
+  filename: function (req, file, cb) {
+    // Generate unique filename to avoid conflicts
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  fileFilter: function (req, file, cb) {
+    // Accept only certain file types
+    const allowedTypes = /jpeg|jpg|png|pdf|doc|docx/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only PDF, DOC, DOCX, JPG, JPEG, PNG files are allowed'));
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  }
+});
 
 // POST register route - handles ALL roles (Student, Mentor, Alumni)
 router.post('/register', async (req, res) => {
@@ -134,7 +167,10 @@ router.post('/verify-otp-only', async (req, res) => {
   }
 });
 
-router.post('/create-user', async (req, res) => {
+router.post('/create-user', upload.fields([
+  { name: 'mentorProof', maxCount: 1 },
+  { name: 'alumniProof', maxCount: 1 }
+]), async (req, res) => {
   const { 
     email,
     firstName, 
@@ -158,6 +194,7 @@ router.post('/create-user', async (req, res) => {
 
   try {
     console.log('🏗️ Creating', role, 'account for:', email);
+    console.log('📁 Files received:', req.files); // Debug log
     
     // Check if OTP was verified (same for all roles)
     const otpDoc = await Otp.findOne({ 
@@ -175,7 +212,17 @@ router.post('/create-user', async (req, res) => {
         return res.status(400).json({ message: 'Course expertise is required for mentors.' });
       }
       
-      for (let expertise of courseExpertise) {
+      // Parse courseExpertise if it's a string (from FormData)
+      let parsedCourseExpertise = courseExpertise;
+      if (typeof courseExpertise === 'string') {
+        try {
+          parsedCourseExpertise = JSON.parse(courseExpertise);
+        } catch (e) {
+          console.error('Error parsing courseExpertise:', e);
+        }
+      }
+      
+      for (let expertise of parsedCourseExpertise) {
         if (!expertise.course || !expertise.grade) {
           return res.status(400).json({ 
             message: 'Each course expertise must have a course and grade.' 
@@ -184,18 +231,48 @@ router.post('/create-user', async (req, res) => {
       }
     }
 
-    // Handle proof field (same logic as before)
+    // ✅ Handle uploaded files
     let processedProof = [];
-    if (proof && Array.isArray(proof)) {
-      processedProof = proof.filter(item => 
-        item && typeof item === 'string' && item.trim() !== '' && item !== '{}'
-      );
+    if (req.files) {
+      if (req.files.mentorProof && req.files.mentorProof[0]) {
+        processedProof.push(req.files.mentorProof[0].filename);
+        console.log('📄 Mentor proof file saved:', req.files.mentorProof[0].filename);
+      }
+      if (req.files.alumniProof && req.files.alumniProof[0]) {
+        processedProof.push(req.files.alumniProof[0].filename);
+        console.log('📄 Alumni proof file saved:', req.files.alumniProof[0].filename);
+      }
     }
+    
+    // If no files uploaded but role requires proof, add placeholder
     if (processedProof.length === 0 && role !== 'Student') {
       processedProof = ['pending-file-upload'];
     }
 
     let newUser;
+
+    // Parse JSON strings from FormData if needed
+    let parsedCoursesEnrolled = coursesEnrolled;
+    let parsedAvailability = availability;
+    let parsedStudentClubs = studentClubs;
+    let parsedCurrentJob = currentJob;
+    let parsedCourseExpertise = courseExpertise;
+
+    if (typeof coursesEnrolled === 'string') {
+      try { parsedCoursesEnrolled = JSON.parse(coursesEnrolled); } catch (e) { console.error('Error parsing coursesEnrolled:', e); }
+    }
+    if (typeof availability === 'string') {
+      try { parsedAvailability = JSON.parse(availability); } catch (e) { console.error('Error parsing availability:', e); }
+    }
+    if (typeof studentClubs === 'string') {
+      try { parsedStudentClubs = JSON.parse(studentClubs); } catch (e) { console.error('Error parsing studentClubs:', e); }
+    }
+    if (typeof currentJob === 'string') {
+      try { parsedCurrentJob = JSON.parse(currentJob); } catch (e) { console.error('Error parsing currentJob:', e); }
+    }
+    if (typeof courseExpertise === 'string') {
+      try { parsedCourseExpertise = JSON.parse(courseExpertise); } catch (e) { console.error('Error parsing courseExpertise:', e); }
+    }
 
     // Create user based on role
     if (role === 'Student') {
@@ -209,12 +286,17 @@ router.post('/create-user', async (req, res) => {
         bio,
         program,
         programType,
-        coursesEnrolled,
+        coursesEnrolled: parsedCoursesEnrolled,
         expectedGradDate,
-        studentClubs,
+        studentClubs: parsedStudentClubs,
         isVerified: true,
       });
     } else if (role === 'Mentor') {
+  
+        let validGPA = null;
+        if (overallGPA && overallGPA !== 'undefined' && overallGPA !== '' && !isNaN(overallGPA)) {
+          validGPA = parseFloat(overallGPA);
+        }
       newUser = new Mentor({
         firstName,
         lastName,
@@ -225,12 +307,12 @@ router.post('/create-user', async (req, res) => {
         bio,
         program,
         programType,
-        coursesEnrolled,
+        coursesEnrolled: parsedCoursesEnrolled,
         expectedGradDate,
-        courseExpertise,
-        availability,
+        courseExpertise: parsedCourseExpertise,
+        availability: parsedAvailability,
         proof: processedProof,
-        overallGPA,
+        overallGPA: validGPA,
         isVerified: true,
         isPendingApproval: true,
         isApproved: false,
@@ -246,9 +328,9 @@ router.post('/create-user', async (req, res) => {
         bio,
         program,
         programType,
-        coursesEnrolled,
+        coursesEnrolled: parsedCoursesEnrolled,
         gradDate,
-        currentJob,
+        currentJob: parsedCurrentJob,
         proof: processedProof,
         isVerified: true,
         isApproved: false,
@@ -259,6 +341,7 @@ router.post('/create-user', async (req, res) => {
 
     await newUser.save();
     console.log('✅ User created successfully:', newUser.email, 'Role:', newUser.role);
+    console.log('📁 Proof files saved:', processedProof);
 
     // Clean up OTP
     await Otp.deleteOne({ email: email.toLowerCase() });
@@ -349,4 +432,5 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ message: 'Login failed' });
   }
 });
+
 module.exports = router;

@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
+const { approveMentor, rejectMentor, getPendingMentors, getMentorById } = require('../controllers/approvalEmail');
 const auth = require('../middleware/auth'); // Your existing auth middleware
 const mongoose = require('mongoose');
 
@@ -49,5 +50,16 @@ router.get('/users', auth, adminCheck, adminController.getAllUsers);
 router.get('/users/:userId', auth, adminCheck, adminController.getUserById);
 router.delete('/users/:userId', auth, adminCheck, adminController.deleteUser);
 router.patch('/users/:userId/status', auth, adminCheck, adminController.updateUserStatus);
+
+// Approval management routes (scalable for mentors and alumni)
+router.get('/approvals/mentors', auth, adminCheck, getPendingMentors);
+router.get('/approvals/mentors/:id', auth, adminCheck, getMentorById);
+router.put('/approvals/mentors/:id/approve', auth, adminCheck, approveMentor);
+router.put('/approvals/mentors/:id/reject', auth, adminCheck, rejectMentor);
+
+// Future alumni routes (when implemented)
+// router.get('/approvals/alumni', auth, adminCheck, getPendingAlumni);
+// router.put('/approvals/alumni/:id/approve', auth, adminCheck, approveAlumni);
+// router.put('/approvals/alumni/:id/reject', auth, adminCheck, rejectAlumni);
 
 module.exports = router;
