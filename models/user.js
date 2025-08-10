@@ -18,13 +18,11 @@ if (mongoose.models.User) {
         type: String,
         required: true,
         unique: true,
-        minlength: 5,
         trim: true,
         validate: {
           validator: function (v) {
             return /^[a-zA-Z0-9]+[_.]?[a-zA-Z0-9]+$/.test(v);
           },
-          message: 'Username must be at least 5 characters... ',
         },
       },
 
