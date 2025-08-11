@@ -10,12 +10,12 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['course_peer', 'new_message', 'mention', 'system', 'general'],
+    enum: ['course_peer', 'new_message', 'mention', 'system', 'general', 'message'], // ✅ Added 'message' for chat
     required: true
   },
   title: {
     type: String,
-    required: true
+    required: false  // ✅ Made optional since chat notifications might not always have titles
   },
   message: {
     type: String,
